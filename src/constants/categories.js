@@ -1,5 +1,4 @@
-// 大分類・中分類・小分類のマスタデータ
-// スプレッドシートの設定シートで管理（フェーズ3）するまではここで管理
+// 大分類・中分類・小分類のマスタデータ（人財確保事業の分類.xlsx より）
 
 export const CATEGORIES = [
   {
@@ -11,24 +10,8 @@ export const CATEGORIES = [
         name: '大学生対象',
         small: [
           { id: 'small_1_1_1', name: '業界研究会' },
-          { id: 'small_1_1_2', name: 'IT企業見学ツアー' },
-          { id: 'small_1_1_3', name: 'インターンシップ説明会' },
-        ],
-      },
-      {
-        id: 'mid_1_2',
-        name: '高校生対象',
-        small: [
-          { id: 'small_1_2_1', name: 'IT出前授業' },
-          { id: 'small_1_2_2', name: '高校生IT体験セミナー' },
-        ],
-      },
-      {
-        id: 'mid_1_3',
-        name: '専門学校等対象',
-        small: [
-          { id: 'small_1_3_1', name: '専門学校等連携会議' },
-          { id: 'small_1_3_2', name: '就職支援セミナー' },
+          { id: 'small_1_1_2', name: '交流イベント' },
+          { id: 'small_1_1_3', name: '業界・職業研究インターンシップ' },
         ],
       },
     ],
@@ -42,15 +25,9 @@ export const CATEGORIES = [
         name: '採用支援',
         small: [
           { id: 'small_2_1_1', name: '新卒者対象企業説明会' },
-          { id: 'small_2_1_2', name: '中途採用支援セミナー' },
-        ],
-      },
-      {
-        id: 'mid_2_2',
-        name: '人材育成支援',
-        small: [
-          { id: 'small_2_2_1', name: '人材育成研修' },
-          { id: 'small_2_2_2', name: 'DX推進セミナー' },
+          { id: 'small_2_1_2', name: '企業情報の提供' },
+          { id: 'small_2_1_3', name: '学生支援窓口の運営' },
+          { id: 'small_2_1_4', name: '採用促進型インターンシップ・イベント' },
         ],
       },
     ],
@@ -61,10 +38,12 @@ export const CATEGORIES = [
     mid: [
       {
         id: 'mid_3_1',
-        name: '産学連携',
+        name: '産学連携懇話会',
         small: [
-          { id: 'small_3_1_1', name: '産学連携懇話会' },
-          { id: 'small_3_1_2', name: '共同研究・PBL' },
+          { id: 'small_3_1_1', name: '大学等産学実践教育 連携会議' },
+          { id: 'small_3_1_2', name: '専門学校等 連携会議' },
+          { id: 'small_3_1_3', name: '産学連携 情報交換会' },
+          { id: 'small_3_1_4', name: '教育機関との日常的な連携・コーディネーション活動' },
         ],
       },
     ],
@@ -75,18 +54,16 @@ export const CATEGORIES = [
     mid: [
       {
         id: 'mid_4_1',
-        name: 'UIJターン',
+        name: '人材紹介',
         small: [
-          { id: 'small_4_1_1', name: 'UIJターン就職フェア' },
-          { id: 'small_4_1_2', name: 'Uターン相談会' },
+          { id: 'small_4_1_1', name: '人材紹介会社との連携（マッチング事業）' },
         ],
       },
       {
         id: 'mid_4_2',
-        name: '転職・再就職支援',
+        name: 'UIJターン',
         small: [
-          { id: 'small_4_2_1', name: '転職フェア' },
-          { id: 'small_4_2_2', name: '再就職支援セミナー' },
+          { id: 'small_4_2_1', name: 'UIJターンの促進' },
         ],
       },
     ],

@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { path: '/tasks',         label: 'タスク一覧',     icon: '☑' },
   { path: '/stakeholders',  label: 'ステークホルダー', icon: '◎' },
   { path: '/goals',         label: '目標・実績管理', icon: '◆' },
+  { path: '/templates',     label: 'タスクテンプレート', icon: '◧' },
 ]
 
 export default function Sidebar() {

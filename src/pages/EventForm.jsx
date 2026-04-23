@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
-import { getSheet, appendRow, updateById, generateId } from '../api/sheets'
-import { CATEGORIES } from '../constants/categories'
+import { appendRow, updateById, generateId } from '../api/sheets'
+import { CATEGORIES, SMALL_CAT_MAP } from '../constants/categories'
 import { getTemplateBySmallCat, calcDueDate } from '../constants/taskTemplates'
 
 const EMPTY_EVENT = {
@@ -39,13 +39,13 @@ export default function EventForm() {
     }
   }, [isEdit, id, events])
 
-  // 中分類の選択肢
+  // 中分類の選択肢（大分類から絞る）
   const midCats = useMemo(() => {
     const big = CATEGORIES.find(b => b.name === form.big_cat)
     return big?.mid || []
   }, [form.big_cat])
 
-  // 小分類の選択肢
+  // 小分類の選択肢（中分類から絞る）
   const smallCats = useMemo(() => {
     const big = CATEGORIES.find(b => b.name === form.big_cat)
     const mid = big?.mid.find(m => m.name === form.mid_cat)
@@ -55,8 +55,6 @@ export default function EventForm() {
   // 小分類・開催日が変わったらタスクテンプレートを展開
   useEffect(() => {
     if (!form.small_cat || isEdit) return
-
-    // スプレッドシートのテンプレートを優先、なければ定数を使用
     const sheetTemplates = templates.filter(t => t.small_cat === form.small_cat)
     const templateList = sheetTemplates.length > 0
       ? sheetTemplates.map(t => ({
@@ -71,14 +69,14 @@ export default function EventForm() {
       name: t.task_name,
       category: t.category,
       days_before: t.days_before,
+      start_date: '',
       due_date: calcDueDate(form.event_date, t.days_before),
       assignee: '',
       status: '未着手',
-      priority: '中',
       memo: '',
     }))
     setTaskDrafts(drafts)
-  }, [form.small_cat, form.event_date, templates, isEdit])
+  }, [form.small_cat, templates, isEdit])
 
   // 開催日変更時にタスク期日を再計算
   useEffect(() => {
@@ -92,9 +90,13 @@ export default function EventForm() {
   const handleChange = (field, value) => {
     setForm(prev => {
       const next = { ...prev, [field]: value }
-      // 大分類変更時に中・小をリセット
       if (field === 'big_cat') { next.mid_cat = ''; next.small_cat = '' }
       if (field === 'mid_cat') { next.small_cat = '' }
+      // 小分類から大・中を自動セット
+      if (field === 'small_cat' && value) {
+        const match = SMALL_CAT_MAP[value]
+        if (match) { next.big_cat = match.bigName; next.mid_cat = match.midName }
+      }
       return next
     })
   }
@@ -111,10 +113,10 @@ export default function EventForm() {
       name: '',
       category: '',
       days_before: 0,
+      start_date: '',
       due_date: form.event_date || '',
       assignee: '',
       status: '未着手',
-      priority: '中',
       memo: '',
     }])
   }
@@ -136,21 +138,6 @@ export default function EventForm() {
       const eventId = isEdit ? id : generateId()
       const now = new Date().toISOString()
 
-      const eventRow = [
-        eventId,
-        form.name,
-        form.big_cat,
-        form.mid_cat,
-        form.small_cat,
-        form.event_date,
-        form.venue,
-        form.student_goal,
-        form.company_goal,
-        form.status || '計画中',
-        form.sheets_url,
-        isEdit ? form.created_at : now,
-      ]
-
       if (isEdit) {
         await updateById('events', id, {
           id: eventId,
@@ -167,23 +154,17 @@ export default function EventForm() {
           created_at: form.created_at,
         })
       } else {
-        await appendRow('events', eventRow)
-
-        // タスクを一括登録
+        await appendRow('events', [
+          eventId, form.name, form.big_cat, form.mid_cat, form.small_cat,
+          form.event_date, form.venue, form.student_goal, form.company_goal,
+          form.status || '計画中', form.sheets_url, now,
+        ])
         for (const t of taskDrafts) {
           if (!t.name) continue
-          const taskRow = [
-            generateId(),
-            eventId,
-            t.name,
-            t.category,
-            t.due_date,
-            t.assignee,
-            t.status,
-            t.priority,
-            t.memo,
-          ]
-          await appendRow('tasks', taskRow)
+          await appendRow('tasks', [
+            generateId(), eventId, t.name, t.category,
+            t.start_date, t.due_date, t.assignee, t.status, t.memo,
+          ])
         }
       }
 
@@ -198,131 +179,96 @@ export default function EventForm() {
   return (
     <div className="p-6 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
-        <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate(-1)}>
-          ← 戻る
-        </button>
-        <h1 className="text-xl font-bold text-gray-800">
-          {isEdit ? 'イベント編集' : 'イベント新規登録'}
-        </h1>
+        <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate(-1)}>← 戻る</button>
+        <h1 className="text-xl font-bold text-gray-800">{isEdit ? 'イベント編集' : 'イベント新規登録'}</h1>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm mb-4">{error}</div>
-      )}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm mb-4">{error}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* 基本情報 */}
         <section className="bg-white rounded-lg border border-gray-100 p-5">
           <h2 className="text-sm font-semibold text-gray-700 mb-4 border-b pb-2">基本情報</h2>
           <div className="space-y-4">
             <div>
               <label className="form-label">イベント名 <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                className="form-input"
-                value={form.name}
+              <input type="text" className="form-input" value={form.name}
                 onChange={e => handleChange('name', e.target.value)}
-                placeholder="例: 〇〇大学向け業界研究セミナー2026春"
-              />
+                placeholder="例: 〇〇大学向け業界研究セミナー2026春" />
             </div>
+
+            {/* 分類選択：大→中→小、または小から逆引き */}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="form-label">大分類 <span className="text-red-500">*</span></label>
-                <select
-                  className="form-select"
-                  value={form.big_cat}
-                  onChange={e => handleChange('big_cat', e.target.value)}
-                >
+                <select className="form-select" value={form.big_cat}
+                  onChange={e => handleChange('big_cat', e.target.value)}>
                   <option value="">選択...</option>
                   {CATEGORIES.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="form-label">中分類 <span className="text-red-500">*</span></label>
-                <select
-                  className="form-select"
-                  value={form.mid_cat}
+                <select className="form-select" value={form.mid_cat}
                   onChange={e => handleChange('mid_cat', e.target.value)}
-                  disabled={!form.big_cat}
-                >
+                  disabled={!form.big_cat}>
                   <option value="">選択...</option>
                   {midCats.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="form-label">小分類 <span className="text-red-500">*</span></label>
-                <select
-                  className="form-select"
-                  value={form.small_cat}
-                  onChange={e => handleChange('small_cat', e.target.value)}
-                  disabled={!form.mid_cat}
-                >
+                <select className="form-select" value={form.small_cat}
+                  onChange={e => handleChange('small_cat', e.target.value)}>
                   <option value="">選択...</option>
-                  {smallCats.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  {/* 中分類選択済みなら絞り込み、未選択なら全小分類を表示 */}
+                  {(form.mid_cat ? smallCats : CATEGORIES.flatMap(b => b.mid.flatMap(m => m.small)))
+                    .map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
               </div>
             </div>
+            {/* 小分類選択時に大・中を自動表示するヒント */}
+            {form.small_cat && (
+              <p className="text-xs text-gray-400">
+                {form.big_cat} › {form.mid_cat} › {form.small_cat}
+              </p>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="form-label">開催日 <span className="text-red-500">*</span></label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={form.event_date}
-                  onChange={e => handleChange('event_date', e.target.value)}
-                />
+                <input type="date" className="form-input" value={form.event_date}
+                  onChange={e => handleChange('event_date', e.target.value)} />
               </div>
               <div>
                 <label className="form-label">会場</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.venue}
+                <input type="text" className="form-input" value={form.venue}
                   onChange={e => handleChange('venue', e.target.value)}
-                  placeholder="例: 〇〇大学 A棟301号室"
-                />
+                  placeholder="例: 〇〇大学 A棟301号室" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="form-label">学生参加目標数</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={form.student_goal}
-                  onChange={e => handleChange('student_goal', e.target.value)}
-                  min="0"
-                />
+                <input type="number" className="form-input" value={form.student_goal}
+                  onChange={e => handleChange('student_goal', e.target.value)} min="0" />
               </div>
               <div>
                 <label className="form-label">企業参加目標数</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={form.company_goal}
-                  onChange={e => handleChange('company_goal', e.target.value)}
-                  min="0"
-                />
+                <input type="number" className="form-input" value={form.company_goal}
+                  onChange={e => handleChange('company_goal', e.target.value)} min="0" />
               </div>
             </div>
             <div>
               <label className="form-label">申込フォーム / 集計シートURL</label>
-              <input
-                type="url"
-                className="form-input"
-                value={form.sheets_url}
+              <input type="url" className="form-input" value={form.sheets_url}
                 onChange={e => handleChange('sheets_url', e.target.value)}
-                placeholder="https://docs.google.com/spreadsheets/..."
-              />
+                placeholder="https://docs.google.com/spreadsheets/..." />
             </div>
             {isEdit && (
               <div>
                 <label className="form-label">ステータス</label>
-                <select
-                  className="form-select w-40"
-                  value={form.status}
-                  onChange={e => handleChange('status', e.target.value)}
-                >
+                <select className="form-select w-40" value={form.status}
+                  onChange={e => handleChange('status', e.target.value)}>
                   {['計画中', '順調', '注意', '要対応', '完了'].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -339,9 +285,7 @@ export default function EventForm() {
               <h2 className="text-sm font-semibold text-gray-700">
                 タスク
                 {form.small_cat && taskDrafts.length > 0 && (
-                  <span className="ml-2 text-xs text-gray-400 font-normal">
-                    （「{form.small_cat}」のテンプレートから自動展開）
-                  </span>
+                  <span className="ml-2 text-xs text-gray-400 font-normal">（「{form.small_cat}」テンプレートから自動展開）</span>
                 )}
               </h2>
               <button type="button" className="btn-secondary text-xs py-1.5" onClick={handleAddTask}>
@@ -358,10 +302,10 @@ export default function EventForm() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr style={{ background: '#262526' }} className="text-white">
-                      <th className="text-left px-3 py-2 font-medium w-48">タスク名</th>
+                      <th className="text-left px-3 py-2 font-medium">タスク名</th>
                       <th className="text-left px-3 py-2 font-medium w-28">カテゴリ</th>
+                      <th className="text-left px-3 py-2 font-medium w-32">開始日</th>
                       <th className="text-left px-3 py-2 font-medium w-32">期日</th>
-                      <th className="text-left px-3 py-2 font-medium w-24">優先度</th>
                       <th className="px-3 py-2 w-8"></th>
                     </tr>
                   </thead>
@@ -369,49 +313,24 @@ export default function EventForm() {
                     {taskDrafts.map(t => (
                       <tr key={t._key} className="border-b border-gray-50">
                         <td className="px-3 py-1.5">
-                          <input
-                            type="text"
-                            className="form-input text-xs py-1"
-                            value={t.name}
-                            onChange={e => handleTaskChange(t._key, 'name', e.target.value)}
-                            placeholder="タスク名"
-                          />
+                          <input type="text" className="form-input text-xs py-1" value={t.name}
+                            onChange={e => handleTaskChange(t._key, 'name', e.target.value)} placeholder="タスク名" />
                         </td>
                         <td className="px-3 py-1.5">
-                          <input
-                            type="text"
-                            className="form-input text-xs py-1"
-                            value={t.category}
-                            onChange={e => handleTaskChange(t._key, 'category', e.target.value)}
-                          />
+                          <input type="text" className="form-input text-xs py-1" value={t.category}
+                            onChange={e => handleTaskChange(t._key, 'category', e.target.value)} />
                         </td>
                         <td className="px-3 py-1.5">
-                          <input
-                            type="date"
-                            className="form-input text-xs py-1"
-                            value={t.due_date}
-                            onChange={e => handleTaskChange(t._key, 'due_date', e.target.value)}
-                          />
+                          <input type="date" className="form-input text-xs py-1" value={t.start_date}
+                            onChange={e => handleTaskChange(t._key, 'start_date', e.target.value)} />
                         </td>
                         <td className="px-3 py-1.5">
-                          <select
-                            className="form-select text-xs py-1"
-                            value={t.priority}
-                            onChange={e => handleTaskChange(t._key, 'priority', e.target.value)}
-                          >
-                            <option>高</option>
-                            <option>中</option>
-                            <option>低</option>
-                          </select>
+                          <input type="date" className="form-input text-xs py-1" value={t.due_date}
+                            onChange={e => handleTaskChange(t._key, 'due_date', e.target.value)} />
                         </td>
                         <td className="px-3 py-1.5 text-center">
-                          <button
-                            type="button"
-                            className="text-gray-300 hover:text-red-400 text-base"
-                            onClick={() => handleRemoveTask(t._key)}
-                          >
-                            ✕
-                          </button>
+                          <button type="button" className="text-gray-300 hover:text-red-400 text-base"
+                            onClick={() => handleRemoveTask(t._key)}>✕</button>
                         </td>
                       </tr>
                     ))}
@@ -423,21 +342,12 @@ export default function EventForm() {
         )}
 
         <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={saving}
+          <button type="submit" disabled={saving}
             className="px-6 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ background: '#29e6d3' }}
-          >
+            style={{ background: '#29e6d3' }}>
             {saving ? '保存中...' : isEdit ? '更新する' : '登録する'}
           </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => navigate(-1)}
-          >
-            キャンセル
-          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>キャンセル</button>
         </div>
       </form>
     </div>
