@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import PasswordGate from './components/PasswordGate'
 import Dashboard from './pages/Dashboard'
 import EventList from './pages/EventList'
 import EventDetail from './pages/EventDetail'
@@ -11,6 +12,7 @@ import GoalManagement from './pages/GoalManagement'
 
 export default function App() {
   return (
+    <PasswordGate>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
@@ -27,5 +29,6 @@ export default function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </PasswordGate>
   )
 }
