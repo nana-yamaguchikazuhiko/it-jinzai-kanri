@@ -29,6 +29,13 @@ export default function EventDetail() {
   })
   const [savingResult, setSavingResult] = useState(false)
 
+  // タスク編集・追加
+  const [editingTaskId, setEditingTaskId] = useState(null)
+  const [taskEditForm, setTaskEditForm] = useState({})
+  const [addingTask, setAddingTask] = useState(false)
+  const [newTaskForm, setNewTaskForm] = useState({ name: '', category: '', due_date: '', assignee: '', status: '未着手', priority: '中', memo: '' })
+  const [savingTask, setSavingTask] = useState(false)
+
   const event = events.find(e => e.id === id)
   const evTasks = tasks.filter(t => t.event_id === id)
   const evSHIds = eventSH.filter(r => r.event_id === id).map(r => r.stakeholder_id)
@@ -56,6 +63,53 @@ export default function EventDetail() {
       reloadTasks()
     } catch (e) {
       alert('更新失敗: ' + e.message)
+    }
+  }
+
+  const startEditTask = (task) => {
+    setEditingTaskId(task.id)
+    setTaskEditForm({ name: task.name, category: task.category, due_date: task.due_date, assignee: task.assignee, status: task.status, priority: task.priority, memo: task.memo })
+  }
+
+  const handleSaveTask = async (task) => {
+    setSavingTask(true)
+    try {
+      await updateById('tasks', task.id, { ...task, ...taskEditForm })
+      reloadTasks()
+      setEditingTaskId(null)
+    } catch (e) {
+      alert('更新失敗: ' + e.message)
+    } finally {
+      setSavingTask(false)
+    }
+  }
+
+  const handleDeleteTask = async (task) => {
+    if (!confirm(`「${task.name}」を削除しますか？`)) return
+    try {
+      await deleteById('tasks', task.id)
+      reloadTasks()
+    } catch (e) {
+      alert('削除失敗: ' + e.message)
+    }
+  }
+
+  const handleAddTask = async () => {
+    if (!newTaskForm.name) { alert('タスク名を入力してください'); return }
+    setSavingTask(true)
+    try {
+      await appendRow('tasks', [
+        generateId(), id,
+        newTaskForm.name, newTaskForm.category, newTaskForm.due_date,
+        newTaskForm.assignee, newTaskForm.status, newTaskForm.priority, newTaskForm.memo,
+      ])
+      reloadTasks()
+      setAddingTask(false)
+      setNewTaskForm({ name: '', category: '', due_date: '', assignee: '', status: '未着手', priority: '中', memo: '' })
+    } catch (e) {
+      alert('追加失敗: ' + e.message)
+    } finally {
+      setSavingTask(false)
     }
   }
 
@@ -244,52 +298,117 @@ export default function EventDetail() {
       {/* タスクタブ */}
       {activeTab === 'tasks' && (
         <div className="bg-white rounded-lg border border-gray-100">
-          {evTasks.length === 0 ? (
-            <p className="text-center text-gray-400 text-sm py-8">タスクがありません</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: '#262526' }} className="text-white text-xs">
-                  <th className="text-left px-4 py-2.5">タスク名</th>
-                  <th className="text-left px-4 py-2.5">カテゴリ</th>
-                  <th className="text-left px-4 py-2.5">期日</th>
-                  <th className="text-left px-4 py-2.5">優先</th>
-                  <th className="text-left px-4 py-2.5">ステータス</th>
+          {/* タスク追加ボタン */}
+          <div className="flex justify-end px-4 py-2 border-b border-gray-100">
+            <button
+              className="text-xs px-3 py-1.5 rounded font-semibold text-gray-900 hover:opacity-90"
+              style={{ background: '#29e6d3' }}
+              onClick={() => { setAddingTask(true); setEditingTaskId(null) }}
+            >
+              + タスク追加
+            </button>
+          </div>
+
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: '#262526' }} className="text-white text-xs">
+                <th className="text-left px-4 py-2.5">タスク名</th>
+                <th className="text-left px-4 py-2.5">カテゴリ</th>
+                <th className="text-left px-4 py-2.5">期日</th>
+                <th className="text-left px-4 py-2.5">優先</th>
+                <th className="text-left px-4 py-2.5">ステータス</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* 新規追加行 */}
+              {addingTask && (
+                <tr className="border-b border-gray-100 bg-green-50">
+                  <td className="px-3 py-1.5">
+                    <input className="form-input text-xs py-1" placeholder="タスク名 *" value={newTaskForm.name} onChange={e => setNewTaskForm(p => ({ ...p, name: e.target.value }))} />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <input className="form-input text-xs py-1" placeholder="カテゴリ" value={newTaskForm.category} onChange={e => setNewTaskForm(p => ({ ...p, category: e.target.value }))} />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <input type="date" className="form-input text-xs py-1" value={newTaskForm.due_date} onChange={e => setNewTaskForm(p => ({ ...p, due_date: e.target.value }))} />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <select className="form-select text-xs py-1" value={newTaskForm.priority} onChange={e => setNewTaskForm(p => ({ ...p, priority: e.target.value }))}>
+                      <option>高</option><option>中</option><option>低</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <select className="form-select text-xs py-1" value={newTaskForm.status} onChange={e => setNewTaskForm(p => ({ ...p, status: e.target.value }))}>
+                      {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <div className="flex gap-1.5">
+                      <button className="text-xs px-2 py-1 rounded text-gray-900 font-medium disabled:opacity-50" style={{ background: '#29e6d3' }} onClick={handleAddTask} disabled={savingTask}>保存</button>
+                      <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setAddingTask(false)}>✕</button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {evTasks
+              )}
+
+              {evTasks.length === 0 && !addingTask ? (
+                <tr><td colSpan={6} className="text-center text-gray-400 text-sm py-8">タスクがありません</td></tr>
+              ) : (
+                evTasks
                   .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
                   .map(t => {
                     const isOverdue = t.status !== '完了' && t.due_date && t.due_date < today
+                    const isEditing = editingTaskId === t.id
                     return (
-                      <tr
-                        key={t.id}
-                        className={`border-b border-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}
-                      >
-                        <td className="px-4 py-2.5 font-medium">{t.name}</td>
-                        <td className="px-4 py-2.5 text-gray-500 text-xs">{t.category || '—'}</td>
-                        <td className={`px-4 py-2.5 text-xs font-mono ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
-                          {formatDate(t.due_date)}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <PriorityBadge priority={t.priority} />
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <select
-                            className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white"
-                            value={t.status}
-                            onChange={e => handleTaskStatusChange(t, e.target.value)}
-                          >
-                            {TASK_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </td>
+                      <tr key={t.id} className={`border-b border-gray-50 ${isOverdue && !isEditing ? 'bg-red-50' : isEditing ? 'bg-blue-50' : ''}`}>
+                        {isEditing ? (
+                          <>
+                            <td className="px-3 py-1.5"><input className="form-input text-xs py-1" value={taskEditForm.name} onChange={e => setTaskEditForm(p => ({ ...p, name: e.target.value }))} /></td>
+                            <td className="px-3 py-1.5"><input className="form-input text-xs py-1" value={taskEditForm.category} onChange={e => setTaskEditForm(p => ({ ...p, category: e.target.value }))} /></td>
+                            <td className="px-3 py-1.5"><input type="date" className="form-input text-xs py-1" value={taskEditForm.due_date} onChange={e => setTaskEditForm(p => ({ ...p, due_date: e.target.value }))} /></td>
+                            <td className="px-3 py-1.5">
+                              <select className="form-select text-xs py-1" value={taskEditForm.priority} onChange={e => setTaskEditForm(p => ({ ...p, priority: e.target.value }))}>
+                                <option>高</option><option>中</option><option>低</option>
+                              </select>
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <select className="form-select text-xs py-1" value={taskEditForm.status} onChange={e => setTaskEditForm(p => ({ ...p, status: e.target.value }))}>
+                                {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <div className="flex gap-1.5">
+                                <button className="text-xs px-2 py-1 rounded text-gray-900 font-medium disabled:opacity-50" style={{ background: '#29e6d3' }} onClick={() => handleSaveTask(t)} disabled={savingTask}>保存</button>
+                                <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setEditingTaskId(null)}>✕</button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-4 py-2.5 font-medium">{t.name}</td>
+                            <td className="px-4 py-2.5 text-gray-500 text-xs">{t.category || '—'}</td>
+                            <td className={`px-4 py-2.5 text-xs font-mono ${isOverdue ? 'text-red-600 font-bold' : ''}`}>{formatDate(t.due_date)}</td>
+                            <td className="px-4 py-2.5"><PriorityBadge priority={t.priority} /></td>
+                            <td className="px-4 py-2.5">
+                              <select className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white" value={t.status} onChange={e => handleTaskStatusChange(t, e.target.value)}>
+                                {TASK_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex gap-2">
+                                <button className="text-xs text-blue-500 hover:underline" onClick={() => { startEditTask(t); setAddingTask(false) }}>編集</button>
+                                <button className="text-xs text-red-400 hover:underline" onClick={() => handleDeleteTask(t)}>削除</button>
+                              </div>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     )
-                  })}
-              </tbody>
-            </table>
-          )}
+                  })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
