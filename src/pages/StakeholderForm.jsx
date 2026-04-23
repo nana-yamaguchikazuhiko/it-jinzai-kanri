@@ -7,6 +7,8 @@ const EMPTY_SH = {
   name: '',
   type: '',
   contact_name: '',
+  department: '',
+  position: '',
   email: '',
   phone: '',
   address: '',
@@ -66,6 +68,8 @@ export default function StakeholderForm() {
           form.next_action,
           form.next_action_date,
           form.memo,
+          form.department,
+          form.position,
         ])
       }
       navigate('/stakeholders')
@@ -118,15 +122,37 @@ export default function StakeholderForm() {
                 </select>
               </div>
             </div>
-            <div>
-              <label className="form-label">担当者名</label>
-              <input
-                type="text"
-                className="form-input"
-                value={form.contact_name}
-                onChange={e => handleChange('contact_name', e.target.value)}
-                placeholder="例: 山田 太郎"
-              />
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="form-label">担当者名</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={form.contact_name}
+                  onChange={e => handleChange('contact_name', e.target.value)}
+                  placeholder="例: 山田 太郎"
+                />
+              </div>
+              <div>
+                <label className="form-label">所属（部署・学部等）</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={form.department}
+                  onChange={e => handleChange('department', e.target.value)}
+                  placeholder="例: キャリアセンター"
+                />
+              </div>
+              <div>
+                <label className="form-label">役職</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={form.position}
+                  onChange={e => handleChange('position', e.target.value)}
+                  placeholder="例: 課長"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

@@ -157,6 +157,14 @@ export default function StakeholderList() {
                           <td colSpan={7} className="px-6 py-3">
                             <div className="grid grid-cols-3 gap-4 text-xs">
                               <div>
+                                <span className="text-gray-400">所属:</span>{' '}
+                                <span>{s.department || '—'}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-400">役職:</span>{' '}
+                                <span>{s.position || '—'}</span>
+                              </div>
+                              <div>
                                 <span className="text-gray-400">メール:</span>{' '}
                                 <span>{s.email || '—'}</span>
                               </div>
