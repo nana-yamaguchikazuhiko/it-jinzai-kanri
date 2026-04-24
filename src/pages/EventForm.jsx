@@ -15,7 +15,8 @@ const EMPTY_EVENT = {
   student_goal: '',
   company_goal: '',
   status: '計画中',
-  sheets_url: '',
+  student_form_url: '',
+  company_form_url: '',
 }
 
 export default function EventForm() {
@@ -153,14 +154,15 @@ export default function EventForm() {
           student_goal: form.student_goal,
           company_goal: form.company_goal,
           status: form.status,
-          sheets_url: form.sheets_url,
+          student_form_url: form.student_form_url,
+          company_form_url: form.company_form_url,
           created_at: form.created_at,
         })
       } else {
         await appendRow('events', [
           eventId, form.name, form.big_cat, form.mid_cat, form.small_cat,
           form.event_date, form.venue, form.student_goal, form.company_goal,
-          form.status || '計画中', form.sheets_url, now,
+          form.status || '計画中', form.student_form_url, now, form.company_form_url,
         ])
         for (const t of taskDrafts) {
           if (!t.name) continue
@@ -261,11 +263,19 @@ export default function EventForm() {
                   onChange={e => handleChange('company_goal', e.target.value)} min="0" />
               </div>
             </div>
-            <div>
-              <label className="form-label">申込フォーム / 集計シートURL</label>
-              <input type="url" className="form-input" value={form.sheets_url}
-                onChange={e => handleChange('sheets_url', e.target.value)}
-                placeholder="https://docs.google.com/spreadsheets/..." />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label">学生申込フォーム 回答スプレッドシートURL</label>
+                <input type="url" className="form-input" value={form.student_form_url}
+                  onChange={e => handleChange('student_form_url', e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/..." />
+              </div>
+              <div>
+                <label className="form-label">企業申込フォーム 回答スプレッドシートURL</label>
+                <input type="url" className="form-input" value={form.company_form_url}
+                  onChange={e => handleChange('company_form_url', e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/..." />
+              </div>
             </div>
             {isEdit && (
               <div>

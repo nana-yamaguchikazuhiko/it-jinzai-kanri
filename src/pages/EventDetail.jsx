@@ -53,6 +53,7 @@ export default function EventDetail() {
   const { rows: stakeholders } = useSheets('stakeholders')
   const { rows: eventSH, reload: reloadEventSH } = useSheets('event_stakeholders')
   const { rows: results, reload: reloadResults } = useSheets('results')
+  const { rows: formSync, reload: reloadFormSync } = useSheets('form_sync')
 
   const [activeTab, setActiveTab] = useState('tasks')
 
@@ -80,6 +81,10 @@ export default function EventDetail() {
   const evResult = results.find(r => r.event_id === id)
   const today = new Date().toISOString().split('T')[0]
   const unlinkedSH = stakeholders.filter(s => !evSHIds.includes(s.id))
+
+  // フォーム連携: form_syncシートから自動カウント
+  const formStudentCount = formSync.filter(r => r.event_id === id && r.type === 'student').length
+  const formCompanyCount = formSync.filter(r => r.event_id === id && r.type === 'company').length
 
   const ganttData = useMemo(() => {
     if (!event?.event_date || evTasks.length === 0) return null
@@ -253,12 +258,24 @@ export default function EventDetail() {
                 {editingResult ? 'キャンセル' : '編集'}
               </button>
             </div>
+            {/* フォーム自動カウント */}
+            {(formStudentCount > 0 || formCompanyCount > 0) && (
+              <div style={{ display: 'flex', gap: 12, marginBottom: 16, padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a' }}>フォーム自動取得</span>
+                <span style={{ fontSize: 12, color: '#15803d' }}>学生申込: <strong>{formStudentCount}件</strong></span>
+                <span style={{ fontSize: 12, color: '#15803d' }}>企業申込: <strong>{formCompanyCount}件</strong></span>
+                <button onClick={reloadFormSync} style={{ marginLeft: 'auto', fontSize: 11, color: '#16a34a', background: 'none', border: '1px solid #86efac', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}>
+                  更新
+                </button>
+              </div>
+            )}
+
             {editingResult ? (
               <div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                   {['student_applied', 'company_applied', 'student_actual', 'company_actual'].map((f, i) => (
                     <div key={f}>
-                      <label className="form-label">{['学生申込', '企業申込', '学生参加実数', '企業参加実数'][i]}</label>
+                      <label className="form-label">{['学生申込（手動）', '企業申込（手動）', '学生参加実数', '企業参加実数'][i]}</label>
                       <input type="number" className="form-input" value={resultForm[f]} min="0"
                         onChange={e => setResultForm(p => ({ ...p, [f]: e.target.value }))} />
                     </div>
@@ -271,10 +288,16 @@ export default function EventDetail() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-                {[['学生申込', evResult?.student_applied], ['企業申込', evResult?.company_applied], ['学生参加実数', evResult?.student_actual], ['企業参加実数', evResult?.company_actual]].map(([label, value]) => (
-                  <div key={label} style={{ textAlign: 'center', padding: '12px 0', background: '#f8fafc', borderRadius: 10 }}>
+                {[
+                  ['学生申込', formStudentCount > 0 ? formStudentCount : evResult?.student_applied, formStudentCount > 0],
+                  ['企業申込', formCompanyCount > 0 ? formCompanyCount : evResult?.company_applied, formCompanyCount > 0],
+                  ['学生参加実数', evResult?.student_actual, false],
+                  ['企業参加実数', evResult?.company_actual, false],
+                ].map(([label, value, isAuto]) => (
+                  <div key={label} style={{ textAlign: 'center', padding: '12px 0', background: '#f8fafc', borderRadius: 10, position: 'relative' }}>
                     <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 6 }}>{label}</div>
                     <div style={{ fontSize: 26, fontWeight: 800, color: TEXT_PRIMARY }}>{value || '—'}</div>
+                    {isAuto && <div style={{ fontSize: 10, color: '#16a34a', marginTop: 2 }}>自動取得</div>}
                   </div>
                 ))}
               </div>
