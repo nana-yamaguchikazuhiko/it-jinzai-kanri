@@ -289,23 +289,27 @@ function AnnualGantt({ events, tasks, onEventClick }) {
             const barEnd    = getPos(ev.maxDate)
             const eventPos  = getPos(ev.event_date)
             const barWidth  = (barStart !== null && barEnd !== null) ? Math.max(barEnd - barStart, 0.5) : 0
-            const barColor  = STATUS_BAR_COLOR[ev.status] || '#d1d5db'
+            const barColor  = '#93c5fd'
 
             return (
               <div key={ev.id}
-                style={{ display: 'flex', alignItems: 'center', marginBottom: 5, cursor: 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', marginBottom: 8, cursor: 'pointer' }}
                 onClick={() => onEventClick(ev.id)}>
 
                 {/* イベント名 */}
-                <div style={{ width: NAME_W, flexShrink: 0, paddingRight: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: barColor }} />
-                  <span style={{ fontSize: 12, color: '#1e2d3d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }} title={ev.name}>
+                <div style={{ width: NAME_W, flexShrink: 0, paddingRight: 12 }}>
+                  <div style={{ fontSize: 12, color: '#1e2d3d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }} title={ev.name}>
                     {ev.name}
-                  </span>
+                  </div>
+                  {ev.small_cat && (
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#e0f7fa', color: '#0891b2', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {ev.small_cat}
+                    </span>
+                  )}
                 </div>
 
                 {/* チャートエリア */}
-                <div style={{ flex: 1, position: 'relative', height: 24, background: '#f8fafc', borderRadius: 4 }}>
+                <div style={{ flex: 1, position: 'relative', height: 32, background: '#f8fafc', borderRadius: 4 }}>
                   {/* 月グリッド線 */}
                   {monthLabels.map((m, i) => (
                     <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${m.pos}%`, width: 1, background: '#e8edf2' }} />
@@ -345,11 +349,9 @@ function AnnualGantt({ events, tasks, onEventClick }) {
 
         {/* 凡例 */}
         <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap', fontSize: 11, color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
-          {Object.entries(STATUS_BAR_COLOR).map(([label, color]) => (
-            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ display: 'inline-block', width: 12, height: 8, borderRadius: 3, background: color }} />{label}
-            </span>
-          ))}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ display: 'inline-block', width: 20, height: 8, borderRadius: 3, background: '#93c5fd' }} />タスク期間
+          </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: '#06b6d4' }} />開催日
           </span>
