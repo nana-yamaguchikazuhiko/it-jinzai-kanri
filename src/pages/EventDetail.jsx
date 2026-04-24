@@ -538,8 +538,8 @@ function GanttChart({ tasks, ganttData, today }) {
     cur.setMonth(cur.getMonth() + 1); cur.setDate(1)
   }
 
-  const statusColor = { '未着手': '#d1d5db', '進行中': '#3b82f6', '完了': PRIMARY, '期限超過': '#ef4444' }
   const PRIMARY = '#06b6d4'
+  const statusColor = { '未着手': '#d1d5db', '進行中': '#3b82f6', '完了': PRIMARY, '期限超過': '#ef4444' }
 
   return (
     <div>
