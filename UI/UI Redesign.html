@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>運営管理システム — UI Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #0f1117; font-family: 'Noto Sans JP', sans-serif; }
+  #root { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+
+/* ─── Shared Data ─── */
+const TASKS = [
+  { name: "日程確定", cat: "調整", start: "2026/02/09", due: "2026/02/14", status: "完了" },
+  { name: "企業｜申込フォーム作成", cat: "作成", start: "2026/02/19", due: "2026/02/24", status: "完了" },
+  { name: "企業｜Webページ作成", cat: "作成", start: "2026/02/19", due: "2026/02/24", status: "完了" },
+  { name: "MISAメーリングリスト配信", cat: "告知・集客", start: "2026/02/19", due: "2026/02/24", status: "完了" },
+  { name: "学生｜申込フォーム作成", cat: "作成", start: "2026/03/01", due: "2026/03/06", status: "完了" },
+  { name: "学生｜Webページ作成", cat: "作成", start: "2026/03/01", due: "2026/03/06", status: "完了" },
+  { name: "教育機関にメール告知", cat: "告知・集客", start: "2026/03/01", due: "2026/03/06", status: "完了" },
+  { name: "学生｜チラシ作成", cat: "作成", start: "2026/03/11", due: "2026/03/16", status: "対応中" },
+  { name: "学生・企業｜開催要綱メール作成", cat: "作成", start: "2026/03/16", due: "2026/03/21", status: "完了" },
+  { name: "企業｜開催要綱メール送信", cat: "調整", start: "2026/03/21", due: "2026/03/26", status: "完了" },
+];
+
+const NAV_ITEMS = [
+  { icon: "⊞", label: "ダッシュボード", active: false },
+  { icon: "◈", label: "イベント管理", active: true },
+  { icon: "☑", label: "タスク一覧", active: false },
+  { icon: "◎", label: "ステークホルダー", active: false },
+  { icon: "◉", label: "目標・実績管理", active: false },
+  { icon: "▤", label: "タスクテンプレート", active: false },
+];
+
+const EVENT_TITLE = "『2027卒 MISA IT業界「15分集中」セレクト型 合同企業説明会vol.2』";
+const EVENT_TAGS = ["支援対象活動", "採用支援", "新卒者対象企業説明会"];
+
+/* ─── Variation A: Light & Clean ─── */
+function VariantA() {
+  const [activeTab, setActiveTab] = React.useState(0);
+  const teal = "#0891b2";
+  const tealLight = "#e0f7fa";
+  const tealMid = "#22d3ee";
+
+  return (
+    <div style={{ display: "flex", height: "100%", background: "#f7f9fb", fontFamily: "'Noto Sans JP', sans-serif" }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: 220, flexShrink: 0, background: "#fff",
+        borderRight: "1px solid #eaecf0",
+        display: "flex", flexDirection: "column",
+        boxShadow: "2px 0 8px rgba(0,0,0,0.04)"
+      }}>
+        <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #f0f2f5" }}>
+          <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, letterSpacing: "0.08em", marginBottom: 4, textTransform: "uppercase" }}>IT人材確保事業</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>運営管理システム</div>
+        </div>
+        <nav style={{ padding: "12px 0", flex: 1 }}>
+          {NAV_ITEMS.map((item, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 20px", margin: "1px 8px", borderRadius: 8,
+              background: item.active ? tealLight : "transparent",
+              color: item.active ? teal : "#64748b",
+              fontWeight: item.active ? 600 : 400,
+              fontSize: 13, cursor: "pointer",
+              transition: "all 0.15s"
+            }}>
+              <span style={{ fontSize: 14, opacity: 0.8 }}>{item.icon}</span>
+              {item.label}
+              {item.active && <div style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: teal }} />}
+            </div>
+          ))}
+        </nav>
+        <div style={{ padding: "16px 20px", borderTop: "1px solid #f0f2f5" }}>
+          <div style={{ fontSize: 11, color: "#b0b8c8" }}>v1.0.0 Phase 1</div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
+        {/* Top bar */}
+        <div style={{
+          background: "#fff", borderBottom: "1px solid #eaecf0",
+          padding: "0 32px", height: 56,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          position: "sticky", top: 0, zIndex: 10
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", fontSize: 13 }}>
+            <span style={{ color: teal, cursor: "pointer" }}>← イベント一覧へ戻る</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {["詳細", "編集", "削除"].map((label, i) => (
+              <button key={i} style={{
+                padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer",
+                border: i === 2 ? "1px solid #fecaca" : "1px solid #e2e8f0",
+                background: i === 2 ? "#fff5f5" : "#fff",
+                color: i === 2 ? "#ef4444" : i === 0 ? teal : "#374151",
+                fontFamily: "'Noto Sans JP', sans-serif"
+              }}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: "28px 32px", flex: 1 }}>
+          {/* Event header */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+              {EVENT_TAGS.map((tag, i) => (
+                <span key={i} style={{
+                  fontSize: 11, padding: "3px 10px", borderRadius: 20,
+                  background: i === 0 ? tealLight : "#f1f5f9",
+                  color: i === 0 ? teal : "#64748b", fontWeight: 500
+                }}>{tag}</span>
+              ))}
+            </div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", lineHeight: 1.4, textWrap: "pretty" }}>{EVENT_TITLE}</h1>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
+            {[
+              { label: "開始日", value: "2026/04/15" },
+              { label: "合場", value: "—" },
+              { label: "学生目標", value: "30名" },
+              { label: "企業目標", value: "15社" },
+            ].map((s, i) => (
+              <div key={i} style={{
+                background: "#fff", borderRadius: 12, padding: "18px 20px",
+                border: "1px solid #eaecf0",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.04)"
+              }}>
+                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{s.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "#0f172a" }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 申込実績 */}
+          <div style={{
+            background: "#fff", borderRadius: 12, border: "1px solid #eaecf0",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: "20px 24px", marginBottom: 20
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>申込・参加実績</div>
+              <button style={{ fontSize: 12, color: teal, background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 500 }}>編集</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              {["学生申込", "企業申込", "学生参加実数", "企業参加実数"].map((label, i) => (
+                <div key={i} style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#0f172a" }}>—</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Progress */}
+          <div style={{
+            background: "#fff", borderRadius: 12, border: "1px solid #eaecf0",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: "20px 24px", marginBottom: 20
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>タスク進捗</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: teal }}>16 / 18 完了 <span style={{ fontWeight: 400, color: "#94a3b8" }}>(89%)</span></div>
+            </div>
+            <div style={{ height: 8, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ width: "89%", height: "100%", background: `linear-gradient(90deg, ${teal}, ${tealMid})`, borderRadius: 99 }} />
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 0, borderBottom: "2px solid #eaecf0" }}>
+              {["タスク (16)", "ガントチャート", "ステークホルダー (0)"].map((tab, i) => (
+                <button key={i} onClick={() => setActiveTab(i)} style={{
+                  padding: "10px 20px", fontSize: 13, fontWeight: activeTab === i ? 600 : 400,
+                  color: activeTab === i ? teal : "#64748b",
+                  background: "none", border: "none", borderBottom: activeTab === i ? `2px solid ${teal}` : "2px solid transparent",
+                  marginBottom: -2, cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif",
+                  transition: "all 0.15s"
+                }}>{tab}</button>
+              ))}
+              <div style={{ marginLeft: "auto", paddingBottom: 8 }}>
+                <button style={{
+                  padding: "7px 16px", background: teal, color: "#fff",
+                  border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif"
+                }}>+ タスク追加</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Task table */}
+          <div style={{
+            background: "#fff", borderRadius: 12, border: "1px solid #eaecf0",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden"
+          }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  {["タスク名", "カテゴリ", "開始日", "期日", "ステータス", ""].map((h, i) => (
+                    <th key={i} style={{
+                      padding: "11px 16px", textAlign: "left", fontSize: 11,
+                      fontWeight: 600, color: "#94a3b8", letterSpacing: "0.06em",
+                      textTransform: "uppercase", borderBottom: "1px solid #eaecf0"
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TASKS.map((task, i) => (
+                  <tr key={i} style={{ borderBottom: i < TASKS.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#0f172a", fontWeight: 500 }}>{task.name}</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{
+                        fontSize: 11, padding: "3px 8px", borderRadius: 4,
+                        background: task.cat === "告知・集客" ? "#fef3c7" : "#f1f5f9",
+                        color: task.cat === "告知・集客" ? "#d97706" : "#64748b", fontWeight: 500
+                      }}>{task.cat}</span>
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>{task.start}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>{task.due}</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{
+                        fontSize: 11, padding: "3px 10px", borderRadius: 20,
+                        background: task.status === "完了" ? "#dcfce7" : "#fef9c3",
+                        color: task.status === "完了" ? "#16a34a" : "#ca8a04", fontWeight: 600
+                      }}>{task.status}</span>
+                    </td>
+                    <td style={{ padding: "12px 16px", display: "flex", gap: 8 }}>
+                      <button style={{ fontSize: 11, color: teal, background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif" }}>編集</button>
+                      <button style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif" }}>削除</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ─── Variation B: Dark Sidebar Pro ─── */
+function VariantB() {
+  const [activeTab, setActiveTab] = React.useState(0);
+  const teal = "#06b6d4";
+  const sidebarBg = "#0f1c2e";
+  const sidebarActive = "rgba(6,182,212,0.15)";
+
+  return (
+    <div style={{ display: "flex", height: "100%", background: "#f0f4f8", fontFamily: "'Noto Sans JP', sans-serif" }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: 228, flexShrink: 0, background: sidebarBg,
+        display: "flex", flexDirection: "column",
+      }}>
+        <div style={{ padding: "28px 22px 22px" }}>
+          <div style={{ fontSize: 9, color: "rgba(6,182,212,0.7)", fontWeight: 700, letterSpacing: "0.12em", marginBottom: 6, textTransform: "uppercase" }}>IT人材確保事業</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.3, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>運営管理システム</div>
+        </div>
+        <div style={{ width: "calc(100% - 44px)", height: 1, background: "rgba(255,255,255,0.06)", margin: "0 22px 12px" }} />
+        <nav style={{ padding: "4px 0", flex: 1 }}>
+          {NAV_ITEMS.map((item, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "11px 22px", margin: "1px 0",
+              background: item.active ? sidebarActive : "transparent",
+              color: item.active ? teal : "rgba(255,255,255,0.5)",
+              fontWeight: item.active ? 600 : 400,
+              fontSize: 13, cursor: "pointer",
+              borderLeft: item.active ? `3px solid ${teal}` : "3px solid transparent",
+            }}>
+              <span style={{ fontSize: 13 }}>{item.icon}</span>
+              {item.label}
+            </div>
+          ))}
+        </nav>
+        <div style={{ padding: "16px 22px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>v1.0.0 Phase 1</div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main style={{ flex: 1, overflow: "auto" }}>
+        {/* Top bar */}
+        <div style={{
+          background: "#fff", borderBottom: "1px solid #e2e8f0",
+          padding: "0 36px", height: 58,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <span style={{ fontSize: 13, color: teal, cursor: "pointer", fontWeight: 500 }}>← イベント一覧へ戻る</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            {["詳細", "編集"].map((label, i) => (
+              <button key={i} style={{
+                padding: "7px 18px", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer",
+                border: "1px solid #e2e8f0", background: i === 1 ? teal : "#fff",
+                color: i === 1 ? "#fff" : "#374151", fontFamily: "'Noto Sans JP', sans-serif"
+              }}>{label}</button>
+            ))}
+            <button style={{
+              padding: "7px 18px", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer",
+              border: "1px solid #fecaca", background: "#fff5f5", color: "#ef4444",
+              fontFamily: "'Noto Sans JP', sans-serif"
+            }}>削除</button>
+          </div>
+        </div>
+
+        <div style={{ padding: "32px 36px" }}>
+          {/* Header */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {EVENT_TAGS.map((tag, i) => (
+                <span key={i} style={{
+                  fontSize: 11, padding: "3px 10px", borderRadius: 4,
+                  background: "#e0f7fa", color: "#0891b2", fontWeight: 500,
+                  border: "1px solid #b2ebf2"
+                }}>{tag}</span>
+              ))}
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1e2d3d", letterSpacing: "-0.02em", textWrap: "pretty" }}>{EVENT_TITLE}</h1>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+            {[
+              { label: "開始日", value: "2026/04/15", icon: "📅" },
+              { label: "合場", value: "—", icon: "📍" },
+              { label: "学生目標", value: "30名", icon: "🎓" },
+              { label: "企業目標", value: "15社", icon: "🏢" },
+            ].map((s, i) => (
+              <div key={i} style={{
+                background: "#fff", borderRadius: 14, padding: "20px 22px",
+                border: "1px solid #e8edf2",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+              }}>
+                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>{s.label}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "#1e2d3d", letterSpacing: "-0.02em" }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, marginBottom: 24 }}>
+            {/* 申込実績 */}
+            <div style={{
+              background: "#fff", borderRadius: 14, border: "1px solid #e8edf2",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)", padding: "22px 26px"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1e2d3d" }}>申込・参加実績</div>
+                <button style={{ fontSize: 12, color: teal, background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 500 }}>編集</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+                {["学生申込", "企業申込", "学生参加実数", "企業参加実数"].map((label, i) => (
+                  <div key={i} style={{ textAlign: "center", padding: "12px 0", background: "#f8fafc", borderRadius: 10 }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{label}</div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: "#1e2d3d" }}>—</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div style={{
+              background: "#fff", borderRadius: 14, border: "1px solid #e8edf2",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)", padding: "22px 26px",
+              display: "flex", flexDirection: "column", justifyContent: "center"
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1e2d3d", marginBottom: 4 }}>タスク進捗</div>
+              <div style={{ fontSize: 36, fontWeight: 800, color: teal, marginBottom: 12, letterSpacing: "-0.03em" }}>89%</div>
+              <div style={{ height: 10, background: "#f1f5f9", borderRadius: 99, overflow: "hidden", marginBottom: 10 }}>
+                <div style={{ width: "89%", height: "100%", background: `linear-gradient(90deg, #0891b2, ${teal})`, borderRadius: 99 }} />
+              </div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>16 / 18 タスク完了</div>
+            </div>
+          </div>
+
+          {/* Tabs + Table */}
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e8edf2", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #f1f5f9", padding: "0 24px" }}>
+              {["タスク (16)", "ガントチャート", "ステークホルダー (0)"].map((tab, i) => (
+                <button key={i} onClick={() => setActiveTab(i)} style={{
+                  padding: "14px 18px", fontSize: 13, fontWeight: activeTab === i ? 700 : 400,
+                  color: activeTab === i ? teal : "#94a3b8",
+                  background: "none", border: "none", borderBottom: activeTab === i ? `2px solid ${teal}` : "2px solid transparent",
+                  marginBottom: -1, cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif"
+                }}>{tab}</button>
+              ))}
+              <div style={{ marginLeft: "auto" }}>
+                <button style={{
+                  padding: "8px 18px", background: teal, color: "#fff",
+                  border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif"
+                }}>+ タスク追加</button>
+              </div>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#fafbfc" }}>
+                  {["タスク名", "カテゴリ", "開始日", "期日", "ステータス", ""].map((h, i) => (
+                    <th key={i} style={{
+                      padding: "11px 20px", textAlign: "left", fontSize: 11,
+                      fontWeight: 700, color: "#94a3b8", letterSpacing: "0.08em",
+                      textTransform: "uppercase"
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TASKS.map((task, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid #f8fafc" }}>
+                    <td style={{ padding: "13px 20px", fontSize: 13, color: "#1e2d3d", fontWeight: 500 }}>{task.name}</td>
+                    <td style={{ padding: "13px 20px" }}>
+                      <span style={{
+                        fontSize: 11, padding: "3px 8px", borderRadius: 4,
+                        background: task.cat === "告知・集客" ? "#fef3c7" : "#f1f5f9",
+                        color: task.cat === "告知・集客" ? "#d97706" : "#64748b", fontWeight: 500
+                      }}>{task.cat}</span>
+                    </td>
+                    <td style={{ padding: "13px 20px", fontSize: 12, color: "#64748b" }}>{task.start}</td>
+                    <td style={{ padding: "13px 20px", fontSize: 12, color: "#64748b" }}>{task.due}</td>
+                    <td style={{ padding: "13px 20px" }}>
+                      <span style={{
+                        fontSize: 11, padding: "3px 10px", borderRadius: 20,
+                        background: task.status === "完了" ? "#dcfce7" : "#fef9c3",
+                        color: task.status === "完了" ? "#16a34a" : "#ca8a04", fontWeight: 600
+                      }}>{task.status}</span>
+                    </td>
+                    <td style={{ padding: "13px 20px" }}>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button style={{ fontSize: 11, color: teal, background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 500 }}>編集</button>
+                        <button style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif" }}>削除</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ─── Variation C: Elevated / Card-heavy ─── */
+function VariantC() {
+  const [activeTab, setActiveTab] = React.useState(0);
+  const teal = "#0e9ab2";
+  const bg = "#eef2f7";
+
+  return (
+    <div style={{ display: "flex", height: "100%", background: bg, fontFamily: "'Noto Sans JP', sans-serif" }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: 72, flexShrink: 0,
+        background: "#fff",
+        borderRight: "1px solid #e2e8f0",
+        display: "flex", flexDirection: "column", alignItems: "center",
+        padding: "20px 0",
+        boxShadow: "2px 0 12px rgba(0,0,0,0.04)"
+      }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 12,
+          background: `linear-gradient(135deg, ${teal}, #22d3ee)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontWeight: 800, fontSize: 16, marginBottom: 28,
+          boxShadow: `0 4px 12px rgba(14,154,178,0.3)`
+        }}>M</div>
+        {NAV_ITEMS.map((item, i) => (
+          <div key={i} title={item.label} style={{
+            width: 44, height: 44, borderRadius: 10, display: "flex",
+            alignItems: "center", justifyContent: "center", fontSize: 16,
+            background: item.active ? `rgba(14,154,178,0.12)` : "transparent",
+            color: item.active ? teal : "#b0bac5", cursor: "pointer", marginBottom: 4,
+            boxShadow: item.active ? `inset 0 0 0 1.5px rgba(14,154,178,0.3)` : "none"
+          }}>{item.icon}</div>
+        ))}
+      </aside>
+
+      {/* Main */}
+      <main style={{ flex: 1, overflow: "auto" }}>
+        {/* Top bar */}
+        <div style={{
+          background: "rgba(238,242,247,0.9)",
+          backdropFilter: "blur(12px)",
+          padding: "0 36px", height: 56,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          position: "sticky", top: 0, zIndex: 10,
+          borderBottom: "1px solid rgba(0,0,0,0.06)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "#94a3b8" }}>イベント管理</span>
+            <span style={{ color: "#cbd5e1" }}>›</span>
+            <span style={{ fontSize: 12, color: "#374151", fontWeight: 500 }}>イベント詳細</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={{
+              padding: "7px 18px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: "none", background: teal, color: "#fff", fontFamily: "'Noto Sans JP', sans-serif",
+              boxShadow: `0 2px 8px rgba(14,154,178,0.35)`
+            }}>編集</button>
+            <button style={{
+              padding: "7px 18px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: "1px solid #fecaca", background: "#fff", color: "#ef4444",
+              fontFamily: "'Noto Sans JP', sans-serif"
+            }}>削除</button>
+          </div>
+        </div>
+
+        <div style={{ padding: "28px 36px" }}>
+          {/* Event header card */}
+          <div style={{
+            background: `linear-gradient(135deg, ${teal} 0%, #22d3ee 100%)`,
+            borderRadius: 20, padding: "28px 32px", marginBottom: 20,
+            boxShadow: `0 8px 32px rgba(14,154,178,0.25)`
+          }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+              {EVENT_TAGS.map((tag, i) => (
+                <span key={i} style={{
+                  fontSize: 11, padding: "3px 10px", borderRadius: 20,
+                  background: "rgba(255,255,255,0.2)", color: "#fff",
+                  fontWeight: 500, backdropFilter: "blur(4px)"
+                }}>{tag}</span>
+              ))}
+            </div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#fff", lineHeight: 1.5, textWrap: "pretty" }}>{EVENT_TITLE}</h1>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginTop: 20 }}>
+              {[
+                { label: "開始日", value: "2026/04/15" },
+                { label: "合場", value: "—" },
+                { label: "学生目標", value: "30名" },
+                { label: "企業目標", value: "15社" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "14px 18px", backdropFilter: "blur(4px)" }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", marginBottom: 6, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>{s.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+            {/* 申込実績 */}
+            <div style={{ background: "#fff", borderRadius: 16, padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid rgba(255,255,255,0.8)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>申込・参加実績</div>
+                <button style={{ fontSize: 12, color: teal, background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 500 }}>編集</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {["学生申込", "企業申込", "学生参加実数", "企業参加実数"].map((label, i) => (
+                  <div key={i} style={{ padding: "14px 16px", background: "#f8fafc", borderRadius: 12 }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{label}</div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>—</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div style={{ background: "#fff", borderRadius: 16, padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid rgba(255,255,255,0.8)" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>タスク進捗</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
+                <span style={{ fontSize: 48, fontWeight: 800, color: teal, letterSpacing: "-0.03em", lineHeight: 1 }}>89</span>
+                <span style={{ fontSize: 20, color: teal, fontWeight: 700 }}>%</span>
+                <span style={{ fontSize: 13, color: "#94a3b8", marginLeft: 8 }}>16 / 18 完了</span>
+              </div>
+              <div style={{ position: "relative", height: 12, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
+                <div style={{
+                  width: "89%", height: "100%",
+                  background: `linear-gradient(90deg, ${teal}, #22d3ee)`,
+                  borderRadius: 99,
+                  boxShadow: `0 0 12px rgba(14,154,178,0.4)`
+                }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Task section */}
+          <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06)", overflow: "hidden", border: "1px solid rgba(255,255,255,0.8)" }}>
+            <div style={{ display: "flex", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid #f1f5f9" }}>
+              {["タスク (16)", "ガントチャート", "ステークホルダー (0)"].map((tab, i) => (
+                <button key={i} onClick={() => setActiveTab(i)} style={{
+                  padding: "7px 16px", fontSize: 13, fontWeight: 500,
+                  color: activeTab === i ? "#fff" : "#94a3b8",
+                  background: activeTab === i ? teal : "transparent",
+                  border: "none", borderRadius: 20, marginRight: 6,
+                  cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif",
+                  transition: "all 0.15s"
+                }}>{tab}</button>
+              ))}
+              <div style={{ marginLeft: "auto" }}>
+                <button style={{
+                  padding: "8px 18px", background: teal, color: "#fff",
+                  border: "none", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif",
+                  boxShadow: `0 2px 8px rgba(14,154,178,0.35)`
+                }}>+ タスク追加</button>
+              </div>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["タスク名", "カテゴリ", "開始日", "期日", "ステータス", ""].map((h, i) => (
+                    <th key={i} style={{
+                      padding: "10px 20px", textAlign: "left", fontSize: 11,
+                      fontWeight: 700, color: "#b0bac5", letterSpacing: "0.08em",
+                      textTransform: "uppercase", background: "#fafbfc"
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TASKS.map((task, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid #f8fafc", transition: "background 0.1s" }}>
+                    <td style={{ padding: "13px 20px", fontSize: 13, color: "#0f172a", fontWeight: 500 }}>{task.name}</td>
+                    <td style={{ padding: "13px 20px" }}>
+                      <span style={{
+                        fontSize: 11, padding: "3px 10px", borderRadius: 20,
+                        background: task.cat === "告知・集客" ? "#fff8e6" : "#f0f4ff",
+                        color: task.cat === "告知・集客" ? "#d97706" : "#6366f1", fontWeight: 600
+                      }}>{task.cat}</span>
+                    </td>
+                    <td style={{ padding: "13px 20px", fontSize: 12, color: "#94a3b8" }}>{task.start}</td>
+                    <td style={{ padding: "13px 20px", fontSize: 12, color: "#94a3b8" }}>{task.due}</td>
+                    <td style={{ padding: "13px 20px" }}>
+                      <span style={{
+                        fontSize: 11, padding: "4px 12px", borderRadius: 20,
+                        background: task.status === "完了" ? "#d1fae5" : "#fef9c3",
+                        color: task.status === "完了" ? "#059669" : "#ca8a04", fontWeight: 700
+                      }}>{task.status}</span>
+                    </td>
+                    <td style={{ padding: "13px 20px" }}>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button style={{ fontSize: 11, color: teal, background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif", fontWeight: 600 }}>編集</button>
+                        <button style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontFamily: "'Noto Sans JP', sans-serif" }}>削除</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ─── App ─── */
+function App() {
+  return (
+    <DesignCanvas title="運営管理システム — UI Redesign">
+      <DCSection id="variations" title="デザインバリエーション">
+        <DCArtboard id="varA" label="A: ライト＆クリーン" width={1440} height={900}>
+          <VariantA />
+        </DCArtboard>
+        <DCArtboard id="varB" label="B: ダークサイドバー Pro" width={1440} height={900}>
+          <VariantB />
+        </DCArtboard>
+        <DCArtboard id="varC" label="C: カード重視 / エレベーテッド" width={1440} height={900}>
+          <VariantC />
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

@@ -10,6 +10,7 @@ import StakeholderList from './pages/StakeholderList'
 import StakeholderForm from './pages/StakeholderForm'
 import GoalManagement from './pages/GoalManagement'
 import TaskTemplateManager from './pages/TaskTemplateManager'
+import MailList from './pages/MailList'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="stakeholders/:id/edit" element={<StakeholderForm />} />
           <Route path="goals" element={<GoalManagement />} />
           <Route path="templates" element={<TaskTemplateManager />} />
+          <Route path="mails" element={<MailList />} />
         </Route>
       </Routes>
     </BrowserRouter>
