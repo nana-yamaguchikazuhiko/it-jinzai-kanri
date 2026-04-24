@@ -47,7 +47,7 @@ export default function StakeholderList() {
         <h1 className="text-xl font-bold text-gray-800">ステークホルダー一覧</h1>
         <button
           className="px-4 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 transition-opacity flex items-center gap-1.5"
-          style={{ background: '#29e6d3' }}
+          style={{ background: '#06b6d4' }}
           onClick={() => navigate('/stakeholders/new')}
         >
           <span className="text-lg leading-none">+</span>新規登録
@@ -102,7 +102,7 @@ export default function StakeholderList() {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: '#262526' }} className="text-white text-xs">
+                <tr style={{ background: '#0f1c2e' }} className="text-white text-xs">
                   <th className="text-left px-4 py-2.5">名称</th>
                   <th className="text-left px-4 py-2.5">種別</th>
                   <th className="text-left px-4 py-2.5">担当者</th>

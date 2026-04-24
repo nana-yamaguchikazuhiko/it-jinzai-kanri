@@ -7,9 +7,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        accent: '#29e6d3',
-        sidebar: '#262526',
-        bg: '#F5F4F0',
+        accent: '#06b6d4',
+        sidebar: '#0f1c2e',
+        bg: '#f0f4f8',
       },
     },
   },

@@ -2,7 +2,15 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { updateById, appendRow, deleteById, generateId } from '../api/sheets'
-import { EventStatusBadge, ContactStatusBadge } from '../components/StatusBadge'
+import { ContactStatusBadge } from '../components/StatusBadge'
+
+const PRIMARY = '#06b6d4'
+const PRIMARY_DARK = '#0891b2'
+const TEXT_PRIMARY = '#1e2d3d'
+const TEXT_MUTED = '#94a3b8'
+const TEXT_SECONDARY = '#64748b'
+const BORDER = '#e8edf2'
+const CARD_STYLE = { background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}`, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -11,6 +19,30 @@ function formatDate(dateStr) {
 }
 
 const TASK_STATUSES = ['未着手', '進行中', '完了']
+
+function TaskStatusBadge({ status }) {
+  const map = {
+    '完了':   { bg: '#dcfce7', color: '#16a34a' },
+    '進行中': { bg: '#fef9c3', color: '#ca8a04' },
+    '未着手': { bg: '#f1f5f9', color: '#64748b' },
+  }
+  const s = map[status] || map['未着手']
+  return (
+    <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: s.bg, color: s.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
+      {status}
+    </span>
+  )
+}
+
+function CatBadge({ cat }) {
+  const warm = ['告知・集客', 'HP・集客']
+  const isWarm = warm.includes(cat)
+  return (
+    <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, background: isWarm ? '#fef3c7' : '#f1f5f9', color: isWarm ? '#d97706' : '#64748b', fontWeight: 500 }}>
+      {cat || '—'}
+    </span>
+  )
+}
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -47,8 +79,6 @@ export default function EventDetail() {
   const evStakeholders = stakeholders.filter(s => evSHIds.includes(s.id))
   const evResult = results.find(r => r.event_id === id)
   const today = new Date().toISOString().split('T')[0]
-
-  // 未紐づけのSH
   const unlinkedSH = stakeholders.filter(s => !evSHIds.includes(s.id))
 
   const ganttData = useMemo(() => {
@@ -142,280 +172,325 @@ export default function EventDetail() {
   }
 
   if (!event) {
-    return <div className="p-6 text-center text-gray-400 text-sm">{events.length === 0 ? '読み込み中...' : 'イベントが見つかりません'}</div>
+    return <div style={{ padding: '48px', textAlign: 'center', color: TEXT_MUTED, fontSize: 14 }}>{events.length === 0 ? '読み込み中...' : 'イベントが見つかりません'}</div>
   }
 
   const completedTasks = evTasks.filter(t => t.status === '完了').length
   const progress = evTasks.length > 0 ? Math.round((completedTasks / evTasks.length) * 100) : 0
+  const sortedTasks = [...evTasks].sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
+
+  const thStyle = { padding: '11px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }
+  const btnBase = { padding: '7px 18px', borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }
 
   return (
-    <div className="p-6">
-      {/* ヘッダー */}
-      <div className="flex items-start justify-between mb-5">
-        <div>
-          <button className="text-sm text-gray-500 hover:text-gray-700 mb-2 block" onClick={() => navigate('/events')}>
-            ← イベント一覧へ戻る
+    <div style={{ minHeight: '100vh', background: '#f0f4f8' }}>
+
+      {/* ── Top Bar ─────────────────────────────────── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 36px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={() => navigate('/events')}
+          style={{ fontSize: 13, color: PRIMARY, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
+          ← イベント一覧へ戻る
+        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => navigate(`/events/${id}/edit`)}
+            style={{ ...btnBase, background: PRIMARY, color: '#fff', border: 'none' }}>
+            編集
           </button>
-          <h1 className="text-xl font-bold text-gray-800">{event.name}</h1>
-          <p className="text-xs text-gray-400 mt-1">{event.big_cat} › {event.mid_cat} › {event.small_cat}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <EventStatusBadge status={event.status} />
-          <button className="btn-secondary text-xs py-1.5 px-3" onClick={() => navigate(`/events/${id}/edit`)}>編集</button>
-          <button className="text-xs py-1.5 px-3 rounded border border-red-200 text-red-500 hover:bg-red-50" onClick={handleDeleteEvent}>削除</button>
+          <button onClick={handleDeleteEvent}
+            style={{ ...btnBase, border: '1px solid #fecaca', background: '#fff5f5', color: '#ef4444' }}>
+            削除
+          </button>
         </div>
       </div>
 
-      {/* 概要パネル */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <InfoCard label="開催日" value={formatDate(event.event_date)} />
-        <InfoCard label="会場" value={event.venue || '—'} />
-        <InfoCard label="学生目標" value={event.student_goal ? `${event.student_goal}名` : '—'} />
-        <InfoCard label="企業目標" value={event.company_goal ? `${event.company_goal}社` : '—'} />
-      </div>
+      {/* ── Main Content ────────────────────────────── */}
+      <div style={{ padding: '32px 36px' }}>
 
-      {/* 申込・参加実績 */}
-      <div className="bg-white rounded-lg border border-gray-100 p-4 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-700">申込・参加実績</h2>
-          <button className="text-xs hover:underline" style={{ color: '#29e6d3' }}
-            onClick={() => { setResultForm(evResult ? { student_applied: evResult.student_applied, company_applied: evResult.company_applied, student_actual: evResult.student_actual, company_actual: evResult.company_actual } : resultForm); setEditingResult(!editingResult) }}>
-            {editingResult ? 'キャンセル' : '編集'}
-          </button>
-        </div>
-        {editingResult ? (
-          <div className="grid grid-cols-4 gap-3">
-            {['student_applied', 'company_applied', 'student_actual', 'company_actual'].map((f, i) => (
-              <div key={f}>
-                <label className="form-label">{['学生申込', '企業申込', '学生参加実数', '企業参加実数'][i]}</label>
-                <input type="number" className="form-input" value={resultForm[f]} min="0"
-                  onChange={e => setResultForm(p => ({ ...p, [f]: e.target.value }))} />
-              </div>
+        {/* イベントヘッダー */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[event.big_cat, event.mid_cat, event.small_cat].filter(Boolean).map((tag, i) => (
+              <span key={i} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 4, background: '#e0f7fa', color: '#0891b2', fontWeight: 500, border: '1px solid #b2ebf2' }}>
+                {tag}
+              </span>
             ))}
-            <div className="col-span-4">
-              <button className="px-4 py-1.5 rounded text-sm font-semibold text-gray-900 disabled:opacity-50"
-                style={{ background: '#29e6d3' }} onClick={handleSaveResult} disabled={savingResult}>
-                {savingResult ? '保存中...' : '保存'}
+          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: TEXT_PRIMARY, letterSpacing: '-0.02em', lineHeight: 1.4 }}>
+            {event.name}
+          </h1>
+        </div>
+
+        {/* 統計カード 4列 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { label: '開催日', value: formatDate(event.event_date) },
+            { label: '会場',   value: event.venue || '—' },
+            { label: '学生目標', value: event.student_goal ? `${event.student_goal}名` : '—' },
+            { label: '企業目標', value: event.company_goal ? `${event.company_goal}社` : '—' },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ ...CARD_STYLE, padding: '20px 22px' }}>
+              <div style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: TEXT_PRIMARY, letterSpacing: '-0.02em' }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 申込実績 + タスク進捗 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 24 }}>
+
+          {/* 申込・参加実績 */}
+          <div style={{ ...CARD_STYLE, padding: '22px 26px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>申込・参加実績</div>
+              <button
+                style={{ fontSize: 12, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                onClick={() => {
+                  setResultForm(evResult
+                    ? { student_applied: evResult.student_applied, company_applied: evResult.company_applied, student_actual: evResult.student_actual, company_actual: evResult.company_actual }
+                    : resultForm)
+                  setEditingResult(!editingResult)
+                }}>
+                {editingResult ? 'キャンセル' : '編集'}
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-4 gap-4">
-            {[['学生申込', evResult?.student_applied], ['企業申込', evResult?.company_applied], ['学生参加実数', evResult?.student_actual], ['企業参加実数', evResult?.company_actual]].map(([label, value]) => (
-              <div key={label} className="text-center">
-                <p className="text-xs text-gray-400">{label}</p>
-                <p className="text-2xl font-bold text-gray-700">{value || '—'}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* タスク進捗バー */}
-      <div className="bg-white rounded-lg border border-gray-100 p-4 mb-6">
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
-          <span>タスク進捗</span>
-          <span>{completedTasks} / {evTasks.length} 完了 ({progress}%)</span>
-        </div>
-        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: '#29e6d3' }} />
-        </div>
-      </div>
-
-      {/* タブ */}
-      <div className="flex border-b border-gray-200 mb-4">
-        {[
-          { key: 'tasks', label: `タスク (${evTasks.length})` },
-          { key: 'gantt', label: 'ガントチャート' },
-          { key: 'stakeholders', label: `ステークホルダー (${evStakeholders.length})` },
-        ].map(tab => (
-          <button key={tab.key}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.key ? 'border-[#29e6d3] text-gray-800' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab(tab.key)}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── タスクタブ ─────────────────────────────── */}
-      {activeTab === 'tasks' && (
-        <div className="bg-white rounded-lg border border-gray-100">
-          <div className="flex justify-end px-4 py-2 border-b border-gray-100">
-            <button className="text-xs px-3 py-1.5 rounded font-semibold text-gray-900 hover:opacity-90"
-              style={{ background: '#29e6d3' }}
-              onClick={() => { setAddingTask(true); setEditingTaskId(null) }}>
-              + タスク追加
-            </button>
-          </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: '#262526' }} className="text-white text-xs">
-                <th className="text-left px-4 py-2.5">タスク名</th>
-                <th className="text-left px-4 py-2.5">カテゴリ</th>
-                <th className="text-left px-4 py-2.5">開始日</th>
-                <th className="text-left px-4 py-2.5">期日</th>
-                <th className="text-left px-4 py-2.5">ステータス</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* 新規追加行 */}
-              {addingTask && (
-                <tr className="border-b border-gray-100 bg-green-50">
-                  <td className="px-3 py-1.5"><input className="form-input text-xs py-1" placeholder="タスク名 *" value={newTaskForm.name} onChange={e => setNewTaskForm(p => ({ ...p, name: e.target.value }))} /></td>
-                  <td className="px-3 py-1.5"><input className="form-input text-xs py-1" placeholder="カテゴリ" value={newTaskForm.category} onChange={e => setNewTaskForm(p => ({ ...p, category: e.target.value }))} /></td>
-                  <td className="px-3 py-1.5"><input type="date" className="form-input text-xs py-1" value={newTaskForm.start_date} onChange={e => setNewTaskForm(p => ({ ...p, start_date: e.target.value }))} /></td>
-                  <td className="px-3 py-1.5"><input type="date" className="form-input text-xs py-1" value={newTaskForm.due_date} onChange={e => setNewTaskForm(p => ({ ...p, due_date: e.target.value }))} /></td>
-                  <td className="px-3 py-1.5">
-                    <select className="form-select text-xs py-1" value={newTaskForm.status} onChange={e => setNewTaskForm(p => ({ ...p, status: e.target.value }))}>
-                      {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <div className="flex gap-1.5">
-                      <button className="text-xs px-2 py-1 rounded text-gray-900 font-medium disabled:opacity-50" style={{ background: '#29e6d3' }} onClick={handleAddTask} disabled={savingTask}>保存</button>
-                      <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setAddingTask(false)}>✕</button>
+            {editingResult ? (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                  {['student_applied', 'company_applied', 'student_actual', 'company_actual'].map((f, i) => (
+                    <div key={f}>
+                      <label className="form-label">{['学生申込', '企業申込', '学生参加実数', '企業参加実数'][i]}</label>
+                      <input type="number" className="form-input" value={resultForm[f]} min="0"
+                        onChange={e => setResultForm(p => ({ ...p, [f]: e.target.value }))} />
                     </div>
-                  </td>
-                </tr>
-              )}
-              {evTasks.length === 0 && !addingTask ? (
-                <tr><td colSpan={6} className="text-center text-gray-400 text-sm py-8">タスクがありません</td></tr>
-              ) : (
-                evTasks.sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')).map(t => {
-                  const isOverdue = t.status !== '完了' && t.due_date && t.due_date < today
-                  const isEditing = editingTaskId === t.id
-                  return (
-                    <tr key={t.id} className={`border-b border-gray-50 ${isOverdue && !isEditing ? 'bg-red-50' : isEditing ? 'bg-blue-50' : ''}`}>
-                      {isEditing ? (
-                        <>
-                          <td className="px-3 py-1.5"><input className="form-input text-xs py-1" value={taskEditForm.name} onChange={e => setTaskEditForm(p => ({ ...p, name: e.target.value }))} /></td>
-                          <td className="px-3 py-1.5"><input className="form-input text-xs py-1" value={taskEditForm.category} onChange={e => setTaskEditForm(p => ({ ...p, category: e.target.value }))} /></td>
-                          <td className="px-3 py-1.5"><input type="date" className="form-input text-xs py-1" value={taskEditForm.start_date} onChange={e => setTaskEditForm(p => ({ ...p, start_date: e.target.value }))} /></td>
-                          <td className="px-3 py-1.5"><input type="date" className="form-input text-xs py-1" value={taskEditForm.due_date} onChange={e => setTaskEditForm(p => ({ ...p, due_date: e.target.value }))} /></td>
-                          <td className="px-3 py-1.5">
-                            <select className="form-select text-xs py-1" value={taskEditForm.status} onChange={e => setTaskEditForm(p => ({ ...p, status: e.target.value }))}>
-                              {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
-                            </select>
-                          </td>
-                          <td className="px-3 py-1.5">
-                            <div className="flex gap-1.5">
-                              <button className="text-xs px-2 py-1 rounded text-gray-900 font-medium disabled:opacity-50" style={{ background: '#29e6d3' }} onClick={() => handleSaveTask(t)} disabled={savingTask}>保存</button>
-                              <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setEditingTaskId(null)}>✕</button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-4 py-2.5 font-medium">{t.name}</td>
-                          <td className="px-4 py-2.5 text-gray-500 text-xs">{t.category || '—'}</td>
-                          <td className="px-4 py-2.5 text-xs font-mono text-gray-500">{formatDate(t.start_date)}</td>
-                          <td className={`px-4 py-2.5 text-xs font-mono ${isOverdue ? 'text-red-600 font-bold' : ''}`}>{formatDate(t.due_date)}</td>
-                          <td className="px-4 py-2.5">
-                            <select className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white" value={t.status} onChange={e => handleTaskStatusChange(t, e.target.value)}>
-                              {TASK_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="flex gap-2">
-                              <button className="text-xs text-blue-500 hover:underline" onClick={() => { startEditTask(t); setAddingTask(false) }}>編集</button>
-                              <button className="text-xs text-red-400 hover:underline" onClick={() => handleDeleteTask(t)}>削除</button>
-                            </div>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── ガントチャートタブ ──────────────────────── */}
-      {activeTab === 'gantt' && (
-        <div className="bg-white rounded-lg border border-gray-100 p-4 overflow-x-auto">
-          {!ganttData ? (
-            <p className="text-center text-gray-400 text-sm py-8">開催日またはタスクが未設定です</p>
-          ) : (
-            <GanttChart tasks={evTasks} ganttData={ganttData} today={today} />
-          )}
-        </div>
-      )}
-
-      {/* ── ステークホルダータブ ────────────────────── */}
-      {activeTab === 'stakeholders' && (
-        <div className="bg-white rounded-lg border border-gray-100">
-          <div className="flex justify-end px-4 py-2 border-b border-gray-100">
-            <button className="text-xs px-3 py-1.5 rounded font-semibold text-gray-900 hover:opacity-90"
-              style={{ background: '#29e6d3' }}
-              onClick={() => setAddingSH(true)}>
-              + ステークホルダーを紐づける
-            </button>
+                  ))}
+                </div>
+                <button style={{ marginTop: 12, padding: '6px 18px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer' }}
+                  onClick={handleSaveResult} disabled={savingResult}>
+                  {savingResult ? '保存中...' : '保存'}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                {[['学生申込', evResult?.student_applied], ['企業申込', evResult?.company_applied], ['学生参加実数', evResult?.student_actual], ['企業参加実数', evResult?.company_actual]].map(([label, value]) => (
+                  <div key={label} style={{ textAlign: 'center', padding: '12px 0', background: '#f8fafc', borderRadius: 10 }}>
+                    <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 6 }}>{label}</div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: TEXT_PRIMARY }}>{value || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* SH紐づけ追加行 */}
-          {addingSH && (
-            <div className="px-4 py-3 bg-green-50 border-b border-gray-100 flex items-end gap-3">
-              <div className="flex-1">
-                <label className="form-label">ステークホルダーを選択</label>
-                <select className="form-select" value={selectedSHId} onChange={e => setSelectedSHId(e.target.value)}>
-                  <option value="">選択...</option>
-                  {unlinkedSH.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}{s.contact_name ? ` (${s.contact_name})` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <button className="text-xs px-3 py-1.5 rounded text-gray-900 font-medium disabled:opacity-50"
-                style={{ background: '#29e6d3' }} onClick={handleAddSH} disabled={savingSH || !selectedSHId}>
-                {savingSH ? '追加中...' : '追加'}
-              </button>
-              <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => { setAddingSH(false); setSelectedSHId('') }}>キャンセル</button>
+          {/* タスク進捗 */}
+          <div style={{ ...CARD_STYLE, padding: '22px 26px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 4 }}>タスク進捗</div>
+            <div style={{ fontSize: 36, fontWeight: 800, color: PRIMARY, letterSpacing: '-0.03em', marginBottom: 12 }}>{progress}%</div>
+            <div style={{ height: 10, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden', marginBottom: 10 }}>
+              <div style={{ width: `${progress}%`, height: '100%', background: `linear-gradient(90deg, ${PRIMARY_DARK}, ${PRIMARY})`, borderRadius: 99, transition: 'width 0.5s' }} />
             </div>
-          )}
+            <div style={{ fontSize: 12, color: TEXT_MUTED }}>{completedTasks} / {evTasks.length} タスク完了</div>
+          </div>
+        </div>
 
-          {evStakeholders.length === 0 ? (
-            <p className="text-center text-gray-400 text-sm py-8">紐づくステークホルダーがありません</p>
-          ) : (
-            <table className="w-full text-sm">
+        {/* タブ + コンテンツカード */}
+        <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
+
+          {/* タブバー */}
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9', padding: '0 24px' }}>
+            {[
+              { key: 'tasks',        label: `タスク (${evTasks.length})` },
+              { key: 'gantt',        label: 'ガントチャート' },
+              { key: 'stakeholders', label: `ステークホルダー (${evStakeholders.length})` },
+            ].map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                style={{
+                  padding: '14px 18px', fontSize: 13,
+                  fontWeight: activeTab === tab.key ? 700 : 400,
+                  color: activeTab === tab.key ? PRIMARY : TEXT_MUTED,
+                  background: 'none', border: 'none',
+                  borderBottom: activeTab === tab.key ? `2px solid ${PRIMARY}` : '2px solid transparent',
+                  marginBottom: -1, cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                {tab.label}
+              </button>
+            ))}
+            <div style={{ marginLeft: 'auto' }}>
+              {activeTab === 'tasks' && (
+                <button
+                  style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                  onClick={() => { setAddingTask(true); setEditingTaskId(null) }}>
+                  + タスク追加
+                </button>
+              )}
+              {activeTab === 'stakeholders' && (
+                <button
+                  style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                  onClick={() => setAddingSH(true)}>
+                  + ステークホルダーを紐づける
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── タスクタブ ─────────────────────────── */}
+          {activeTab === 'tasks' && (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: '#262526' }} className="text-white text-xs">
-                  <th className="text-left px-4 py-2.5">名称</th>
-                  <th className="text-left px-4 py-2.5">種別</th>
-                  <th className="text-left px-4 py-2.5">担当者</th>
-                  <th className="text-left px-4 py-2.5">連絡状況</th>
-                  <th className="text-left px-4 py-2.5">次アクション期限</th>
-                  <th className="px-4 py-2.5"></th>
+                <tr style={{ background: '#fafbfc' }}>
+                  {['タスク名', 'カテゴリ', '開始日', '期日', 'ステータス', ''].map((h, i) => (
+                    <th key={i} style={thStyle}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {evStakeholders.map(s => (
-                  <tr key={s.id} className="border-b border-gray-50">
-                    <td className="px-4 py-2.5 font-medium">{s.name}</td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">{s.type}</td>
-                    <td className="px-4 py-2.5 text-xs">{s.contact_name || '—'}</td>
-                    <td className="px-4 py-2.5"><ContactStatusBadge status={s.contact_status} /></td>
-                    <td className="px-4 py-2.5 text-xs font-mono">{formatDate(s.next_action_date)}</td>
-                    <td className="px-4 py-2.5">
-                      <button className="text-xs text-red-400 hover:underline" onClick={() => handleRemoveSH(s.id)}>紐づけ解除</button>
+                {/* 新規追加行 */}
+                {addingTask && (
+                  <tr style={{ borderTop: '1px solid #f8fafc', background: '#f0fdf4' }}>
+                    <td style={{ padding: '10px 16px' }}><input className="form-input text-xs py-1" placeholder="タスク名 *" value={newTaskForm.name} onChange={e => setNewTaskForm(p => ({ ...p, name: e.target.value }))} /></td>
+                    <td style={{ padding: '10px 12px' }}><input className="form-input text-xs py-1" placeholder="カテゴリ" value={newTaskForm.category} onChange={e => setNewTaskForm(p => ({ ...p, category: e.target.value }))} /></td>
+                    <td style={{ padding: '10px 12px' }}><input type="date" className="form-input text-xs py-1" value={newTaskForm.start_date} onChange={e => setNewTaskForm(p => ({ ...p, start_date: e.target.value }))} /></td>
+                    <td style={{ padding: '10px 12px' }}><input type="date" className="form-input text-xs py-1" value={newTaskForm.due_date} onChange={e => setNewTaskForm(p => ({ ...p, due_date: e.target.value }))} /></td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <select className="form-select text-xs py-1" value={newTaskForm.status} onChange={e => setNewTaskForm(p => ({ ...p, status: e.target.value }))}>
+                        {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                          onClick={handleAddTask} disabled={savingTask}>保存</button>
+                        <button style={{ fontSize: 11, color: TEXT_MUTED, background: 'none', border: 'none', cursor: 'pointer' }}
+                          onClick={() => setAddingTask(false)}>✕</button>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                )}
+
+                {evTasks.length === 0 && !addingTask ? (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>タスクがありません</td></tr>
+                ) : (
+                  sortedTasks.map(t => {
+                    const isOverdue = t.status !== '完了' && t.due_date && t.due_date < today
+                    const isEditing = editingTaskId === t.id
+                    return (
+                      <tr key={t.id} style={{ borderTop: '1px solid #f8fafc', background: isEditing ? '#eff6ff' : isOverdue ? '#fff5f5' : 'transparent' }}>
+                        {isEditing ? (
+                          <>
+                            <td style={{ padding: '10px 16px' }}><input className="form-input text-xs py-1" value={taskEditForm.name} onChange={e => setTaskEditForm(p => ({ ...p, name: e.target.value }))} /></td>
+                            <td style={{ padding: '10px 12px' }}><input className="form-input text-xs py-1" value={taskEditForm.category} onChange={e => setTaskEditForm(p => ({ ...p, category: e.target.value }))} /></td>
+                            <td style={{ padding: '10px 12px' }}><input type="date" className="form-input text-xs py-1" value={taskEditForm.start_date} onChange={e => setTaskEditForm(p => ({ ...p, start_date: e.target.value }))} /></td>
+                            <td style={{ padding: '10px 12px' }}><input type="date" className="form-input text-xs py-1" value={taskEditForm.due_date} onChange={e => setTaskEditForm(p => ({ ...p, due_date: e.target.value }))} /></td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <select className="form-select text-xs py-1" value={taskEditForm.status} onChange={e => setTaskEditForm(p => ({ ...p, status: e.target.value }))}>
+                                {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
+                              </select>
+                            </td>
+                            <td style={{ padding: '10px 16px' }}>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                                  onClick={() => handleSaveTask(t)} disabled={savingTask}>保存</button>
+                                <button style={{ fontSize: 11, color: TEXT_MUTED, background: 'none', border: 'none', cursor: 'pointer' }}
+                                  onClick={() => setEditingTaskId(null)}>✕</button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{t.name}</td>
+                            <td style={{ padding: '13px 20px' }}><CatBadge cat={t.category} /></td>
+                            <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{formatDate(t.start_date)}</td>
+                            <td style={{ padding: '13px 20px', fontSize: 12, color: isOverdue ? '#ef4444' : TEXT_SECONDARY, fontWeight: isOverdue ? 700 : 400 }}>{formatDate(t.due_date)}</td>
+                            <td style={{ padding: '13px 20px' }}>
+                              <select
+                                value={t.status}
+                                onChange={e => handleTaskStatusChange(t, e.target.value)}
+                                style={{ fontSize: 11, border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 6px', background: '#fff', cursor: 'pointer', color: TEXT_PRIMARY }}>
+                                {TASK_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </td>
+                            <td style={{ padding: '13px 20px' }}>
+                              <div style={{ display: 'flex', gap: 12 }}>
+                                <button style={{ fontSize: 11, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                                  onClick={() => { startEditTask(t); setAddingTask(false) }}>編集</button>
+                                <button style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                  onClick={() => handleDeleteTask(t)}>削除</button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           )}
-        </div>
-      )}
-    </div>
-  )
-}
 
-function InfoCard({ label, value }) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-100 p-3">
-      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-      <p className="text-sm font-medium text-gray-700 truncate">{value}</p>
+          {/* ── ガントチャートタブ ─────────────────── */}
+          {activeTab === 'gantt' && (
+            <div style={{ padding: '24px 28px', overflowX: 'auto' }}>
+              {!ganttData ? (
+                <p style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>開催日またはタスクが未設定です</p>
+              ) : (
+                <GanttChart tasks={evTasks} ganttData={ganttData} today={today} />
+              )}
+            </div>
+          )}
+
+          {/* ── ステークホルダータブ ──────────────── */}
+          {activeTab === 'stakeholders' && (
+            <>
+              {addingSH && (
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', background: '#f0fdf4', display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="form-label">ステークホルダーを選択</label>
+                    <select className="form-select" value={selectedSHId} onChange={e => setSelectedSHId(e.target.value)}>
+                      <option value="">選択...</option>
+                      {unlinkedSH.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}{s.contact_name ? ` (${s.contact_name})` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button style={{ padding: '8px 18px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                    onClick={handleAddSH} disabled={savingSH || !selectedSHId}>
+                    {savingSH ? '追加中...' : '追加'}
+                  </button>
+                  <button style={{ fontSize: 13, color: TEXT_MUTED, background: 'none', border: 'none', cursor: 'pointer' }}
+                    onClick={() => { setAddingSH(false); setSelectedSHId('') }}>キャンセル</button>
+                </div>
+              )}
+              {evStakeholders.length === 0 ? (
+                <p style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>紐づくステークホルダーがありません</p>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#fafbfc' }}>
+                      {['名称', '種別', '担当者', '連絡状況', '次アクション期限', ''].map((h, i) => (
+                        <th key={i} style={thStyle}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {evStakeholders.map(s => (
+                      <tr key={s.id} style={{ borderTop: '1px solid #f8fafc' }}>
+                        <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{s.name}</td>
+                        <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{s.type}</td>
+                        <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{s.contact_name || '—'}</td>
+                        <td style={{ padding: '13px 20px' }}><ContactStatusBadge status={s.contact_status} /></td>
+                        <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{formatDate(s.next_action_date)}</td>
+                        <td style={{ padding: '13px 20px' }}>
+                          <button style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                            onClick={() => handleRemoveSH(s.id)}>紐づけ解除</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -440,37 +515,38 @@ function GanttChart({ tasks, ganttData, today }) {
     cur.setMonth(cur.getMonth() + 1); cur.setDate(1)
   }
 
-  const statusColor = { '未着手': '#d1d5db', '進行中': '#3b82f6', '完了': '#29e6d3', '期限超過': '#ef4444' }
+  const statusColor = { '未着手': '#d1d5db', '進行中': '#3b82f6', '完了': PRIMARY, '期限超過': '#ef4444' }
+  const PRIMARY = '#06b6d4'
 
   return (
     <div>
-      <div className="relative h-6 mb-1">
+      <div style={{ position: 'relative', height: 24, marginBottom: 4 }}>
         {monthLabels.map((m, i) => (
-          <span key={i} className="absolute text-xs text-gray-400 -translate-x-1/2" style={{ left: `${m.pos}%` }}>{m.label}</span>
+          <span key={i} style={{ position: 'absolute', fontSize: 11, color: '#94a3b8', transform: 'translateX(-50%)', left: `${m.pos}%` }}>{m.label}</span>
         ))}
       </div>
-      <div className="relative">
-        {todayPos !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-red-400 z-10" style={{ left: `${todayPos}%` }} title="今日" />}
-        {eventPos !== null && <div className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: `${eventPos}%`, background: '#29e6d3' }} title="開催日" />}
-        {tasks.sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')).map(t => {
+      <div style={{ position: 'relative' }}>
+        {todayPos !== null && <div style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: '#f87171', zIndex: 10, left: `${todayPos}%` }} title="今日" />}
+        {eventPos !== null && <div style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: PRIMARY, zIndex: 10, left: `${eventPos}%` }} title="開催日" />}
+        {[...tasks].sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')).map(t => {
           const pos = getPos(t.due_date)
           if (pos === null) return null
           return (
-            <div key={t.id} className="flex items-center gap-2 mb-1.5">
-              <div className="w-40 shrink-0 text-xs text-gray-600 truncate" title={t.name}>{t.name}</div>
-              <div className="flex-1 relative h-5 bg-gray-50 rounded">
-                <div className="absolute top-1 h-3 rounded-sm" style={{ left: `${pos}%`, width: '12px', background: statusColor[t.status] || '#d1d5db', transform: 'translateX(-50%)' }} title={`${t.name}: ${t.due_date}`} />
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ width: 160, flexShrink: 0, fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.name}>{t.name}</div>
+              <div style={{ flex: 1, position: 'relative', height: 20, background: '#f1f5f9', borderRadius: 4 }}>
+                <div style={{ position: 'absolute', top: 4, height: 12, width: 12, borderRadius: 3, left: `${pos}%`, background: statusColor[t.status] || '#d1d5db', transform: 'translateX(-50%)' }} title={`${t.name}: ${t.due_date}`} />
               </div>
             </div>
           )
         })}
       </div>
-      <div className="flex gap-4 mt-4 text-xs text-gray-400">
-        <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm inline-block" style={{ background: '#29e6d3' }} />完了</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm inline-block" style={{ background: '#3b82f6' }} />進行中</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm inline-block" style={{ background: '#d1d5db' }} />未着手</span>
-        <span className="flex items-center gap-1"><span className="w-0.5 h-3 rounded inline-block bg-red-400" />今日</span>
-        <span className="flex items-center gap-1"><span className="w-0.5 h-3 rounded inline-block" style={{ background: '#29e6d3' }} />開催日</span>
+      <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 11, color: '#94a3b8' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 12, height: 8, borderRadius: 2, display: 'inline-block', background: PRIMARY }} />完了</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 12, height: 8, borderRadius: 2, display: 'inline-block', background: '#3b82f6' }} />進行中</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 12, height: 8, borderRadius: 2, display: 'inline-block', background: '#d1d5db' }} />未着手</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: '#f87171' }} />今日</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: PRIMARY }} />開催日</span>
       </div>
     </div>
   )

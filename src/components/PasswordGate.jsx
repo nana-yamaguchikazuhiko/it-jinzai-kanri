@@ -86,7 +86,7 @@ export default function PasswordGate({ children }) {
               type="submit"
               disabled={loading || !username || !password}
               className="w-full py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 disabled:opacity-40 transition-opacity"
-              style={{ background: '#29e6d3' }}
+              style={{ background: '#06b6d4' }}
             >
               {loading ? 'ログイン中...' : 'ログイン'}
             </button>

@@ -201,7 +201,7 @@ export default function StakeholderForm() {
                         ? 'text-gray-900 border-transparent'
                         : 'text-gray-500 border-gray-200 hover:border-gray-300'
                     }`}
-                    style={form.contact_status === s ? { background: '#29e6d3' } : {}}
+                    style={form.contact_status === s ? { background: '#06b6d4' } : {}}
                     onClick={() => handleChange('contact_status', s)}
                   >
                     {s}
@@ -246,7 +246,7 @@ export default function StakeholderForm() {
             type="submit"
             disabled={saving}
             className="px-6 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ background: '#29e6d3' }}
+            style={{ background: '#06b6d4' }}
           >
             {saving ? '保存中...' : isEdit ? '更新する' : '登録する'}
           </button>

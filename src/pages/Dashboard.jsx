@@ -149,7 +149,7 @@ export default function Dashboard() {
           <div className="col-span-2 bg-white rounded-lg shadow-sm border border-gray-100">
             <div
               className="px-4 py-3 rounded-t-lg text-white text-sm font-semibold"
-              style={{ background: '#262526' }}
+              style={{ background: '#0f1c2e' }}
             >
               期限が近いタスク
             </div>
@@ -192,7 +192,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-100">
             <div
               className="px-4 py-3 rounded-t-lg text-white text-sm font-semibold"
-              style={{ background: '#262526' }}
+              style={{ background: '#0f1c2e' }}
             >
               小分類別達成率
             </div>
@@ -211,7 +211,7 @@ export default function Dashboard() {
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all"
-                          style={{ width: `${pct}%`, background: '#29e6d3' }}
+                          style={{ width: `${pct}%`, background: '#06b6d4' }}
                         />
                       </div>
                     </div>

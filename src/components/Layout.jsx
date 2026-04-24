@@ -3,10 +3,9 @@ import { Outlet } from 'react-router-dom'
 
 export default function Layout() {
   return (
-    <div className="flex min-h-screen" style={{ background: '#F5F4F0' }}>
+    <div className="flex min-h-screen" style={{ background: '#f0f4f8' }}>
       <Sidebar />
-      {/* サイドバー幅分のオフセット */}
-      <main className="flex-1 ml-56 min-h-screen">
+      <main className="flex-1 min-h-screen" style={{ marginLeft: 228 }}>
         <Outlet />
       </main>
     </div>

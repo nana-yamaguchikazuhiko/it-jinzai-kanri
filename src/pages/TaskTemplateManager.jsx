@@ -109,7 +109,7 @@ export default function TaskTemplateManager() {
         <h1 className="text-xl font-bold text-gray-800">タスクテンプレート管理</h1>
         <button
           className="px-4 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90"
-          style={{ background: '#29e6d3' }}
+          style={{ background: '#06b6d4' }}
           onClick={() => { setAddingNew(true); setEditingId(null) }}
         >
           + テンプレート追加
@@ -140,7 +140,7 @@ export default function TaskTemplateManager() {
 
       {/* 新規追加行 */}
       {addingNew && (
-        <div className="bg-white rounded-lg border border-[#29e6d3] p-4 mb-4">
+        <div className="bg-white rounded-lg border border-[#06b6d4] p-4 mb-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">新規テンプレート追加</h3>
           <div className="grid grid-cols-5 gap-3">
             <div>
@@ -172,7 +172,7 @@ export default function TaskTemplateManager() {
           </div>
           <div className="flex gap-2 mt-3">
             <button className="text-xs px-3 py-1.5 rounded text-gray-900 font-medium disabled:opacity-50"
-              style={{ background: '#29e6d3' }} onClick={handleAdd} disabled={saving}>
+              style={{ background: '#06b6d4' }} onClick={handleAdd} disabled={saving}>
               {saving ? '保存中...' : '追加'}
             </button>
             <button className="text-xs text-gray-400 hover:text-gray-600"
@@ -196,7 +196,7 @@ export default function TaskTemplateManager() {
               </div>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: '#262526' }} className="text-white text-xs">
+                  <tr style={{ background: '#0f1c2e' }} className="text-white text-xs">
                     <th className="text-left px-4 py-2">タスク名</th>
                     <th className="text-left px-4 py-2 w-32">カテゴリ</th>
                     <th className="text-left px-4 py-2 w-32">開催日の何日前</th>
@@ -227,7 +227,7 @@ export default function TaskTemplateManager() {
                             <td className="px-3 py-1.5">
                               <div className="flex gap-1.5">
                                 <button className="text-xs px-2 py-1 rounded text-gray-900 font-medium disabled:opacity-50"
-                                  style={{ background: '#29e6d3' }}
+                                  style={{ background: '#06b6d4' }}
                                   onClick={() => handleSaveEdit(t)} disabled={saving}>保存</button>
                                 <button className="text-xs text-gray-400 hover:text-gray-600"
                                   onClick={() => setEditingId(null)}>✕</button>

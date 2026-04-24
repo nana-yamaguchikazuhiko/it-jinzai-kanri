@@ -4,10 +4,9 @@
 
 @layer base {
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
-      'Noto Sans JP', sans-serif;
-    background-color: #F5F4F0;
-    color: #1a1a1a;
+    font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+    background-color: #f0f4f8;
+    color: #1e2d3d;
   }
 }
 
@@ -34,6 +33,6 @@
     @apply w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent bg-white;
   }
   .table-header {
-    @apply bg-[#262526] text-white;
+    @apply bg-[#0f1c2e] text-white;
   }
 }

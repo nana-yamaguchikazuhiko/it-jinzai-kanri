@@ -86,7 +86,7 @@ export default function EventList() {
         <h1 className="text-xl font-bold text-gray-800">イベント一覧</h1>
         <button
           className="btn-primary flex items-center gap-1.5"
-          style={{ background: '#29e6d3', color: '#1a1a1a' }}
+          style={{ background: '#06b6d4', color: '#1a1a1a' }}
           onClick={() => navigate('/events/new')}
         >
           <span className="text-lg leading-none">+</span>新規登録
@@ -174,7 +174,7 @@ export default function EventList() {
                       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full"
-                          style={{ width: `${progress}%`, background: '#29e6d3' }}
+                          style={{ width: `${progress}%`, background: '#06b6d4' }}
                         />
                       </div>
                     </div>

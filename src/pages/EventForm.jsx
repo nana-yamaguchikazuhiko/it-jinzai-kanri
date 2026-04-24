@@ -304,7 +304,7 @@ export default function EventForm() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr style={{ background: '#262526' }} className="text-white">
+                    <tr style={{ background: '#0f1c2e' }} className="text-white">
                       <th className="text-left px-3 py-2 font-medium">タスク名</th>
                       <th className="text-left px-3 py-2 font-medium w-28">カテゴリ</th>
                       <th className="text-left px-3 py-2 font-medium w-32">開始日</th>
@@ -347,7 +347,7 @@ export default function EventForm() {
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
             className="px-6 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ background: '#29e6d3' }}>
+            style={{ background: '#06b6d4' }}>
             {saving ? '保存中...' : isEdit ? '更新する' : '登録する'}
           </button>
           <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>キャンセル</button>

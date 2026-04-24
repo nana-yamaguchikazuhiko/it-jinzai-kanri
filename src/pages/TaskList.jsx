@@ -136,7 +136,7 @@ export default function TaskList() {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: '#262526' }} className="text-white text-xs">
+                <tr style={{ background: '#0f1c2e' }} className="text-white text-xs">
                   <th className="text-left px-4 py-2.5">タスク名</th>
                   <th className="text-left px-4 py-2.5">イベント</th>
                   <th className="text-left px-4 py-2.5">カテゴリ</th>

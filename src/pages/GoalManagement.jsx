@@ -115,7 +115,7 @@ export default function GoalManagement() {
   const RateBar = ({ actual, goal }) => {
     const rate = achieveRate(actual, goal)
     if (rate === null) return <span className="text-gray-300">—</span>
-    const color = rate >= 100 ? '#29e6d3' : rate >= 75 ? '#3b82f6' : rate >= 50 ? '#f59e0b' : '#ef4444'
+    const color = rate >= 100 ? '#06b6d4' : rate >= 75 ? '#3b82f6' : rate >= 50 ? '#f59e0b' : '#ef4444'
     return (
       <div className="flex items-center gap-2">
         <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -167,7 +167,7 @@ export default function GoalManagement() {
                       className="h-full rounded-full"
                       style={{
                         width: `${Math.min(rate, 100)}%`,
-                        background: rate >= 100 ? '#29e6d3' : rate >= 75 ? '#3b82f6' : '#f59e0b',
+                        background: rate >= 100 ? '#06b6d4' : rate >= 75 ? '#3b82f6' : '#f59e0b',
                       }}
                     />
                   </div>
@@ -186,7 +186,7 @@ export default function GoalManagement() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ background: '#262526' }} className="text-white text-xs">
+              <tr style={{ background: '#0f1c2e' }} className="text-white text-xs">
                 <th className="text-left px-4 py-2.5 w-48">小分類</th>
                 <th className="text-left px-4 py-2.5 w-28">目標 (回)</th>
                 <th className="text-left px-4 py-2.5 w-24">実績 (回)</th>
@@ -246,7 +246,7 @@ export default function GoalManagement() {
                           <div className="flex gap-1.5">
                             <button
                               className="text-xs px-2 py-1 rounded text-gray-900 font-medium disabled:opacity-50"
-                              style={{ background: '#29e6d3' }}
+                              style={{ background: '#06b6d4' }}
                               onClick={() => handleSave(row)}
                               disabled={saving}
                             >
