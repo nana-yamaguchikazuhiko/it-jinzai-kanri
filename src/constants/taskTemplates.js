@@ -54,3 +54,11 @@ export function calcDueDate(eventDate, daysBefore) {
   d.setDate(d.getDate() - daysBefore)
   return d.toISOString().split('T')[0]
 }
+
+// due_dateの5日前をstart_dateとして計算
+export function calcStartDate(dueDate) {
+  if (!dueDate) return ''
+  const d = new Date(dueDate)
+  d.setDate(d.getDate() - 5)
+  return d.toISOString().split('T')[0]
+}

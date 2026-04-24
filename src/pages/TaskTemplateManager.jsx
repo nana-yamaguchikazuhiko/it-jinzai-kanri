@@ -32,12 +32,15 @@ export default function TaskTemplateManager() {
       : displayTemplates,
   [displayTemplates, selectedSmallCat])
 
-  // 小分類ごとにグループ化
+  // 小分類ごとにグループ化（days_before降順でソート）
   const grouped = useMemo(() => {
     const map = {}
     filtered.forEach(t => {
       if (!map[t.small_cat]) map[t.small_cat] = []
       map[t.small_cat].push(t)
+    })
+    Object.keys(map).forEach(k => {
+      map[k].sort((a, b) => Number(b.days_before) - Number(a.days_before))
     })
     return map
   }, [filtered])

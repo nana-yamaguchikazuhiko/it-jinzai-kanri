@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { appendRow, updateById, generateId } from '../api/sheets'
 import { CATEGORIES, SMALL_CAT_MAP } from '../constants/categories'
-import { getTemplateBySmallCat, calcDueDate } from '../constants/taskTemplates'
+import { getTemplateBySmallCat, calcDueDate, calcStartDate } from '../constants/taskTemplates'
 
 const EMPTY_EVENT = {
   name: '',
@@ -64,27 +64,30 @@ export default function EventForm() {
         }))
       : getTemplateBySmallCat(form.small_cat)
 
-    const drafts = templateList.map((t, i) => ({
-      _key: `${form.small_cat}-${i}`,
-      name: t.task_name,
-      category: t.category,
-      days_before: t.days_before,
-      start_date: '',
-      due_date: calcDueDate(form.event_date, t.days_before),
-      assignee: '',
-      status: '未着手',
-      memo: '',
-    }))
+    const drafts = templateList.map((t, i) => {
+      const due = calcDueDate(form.event_date, t.days_before)
+      return {
+        _key: `${form.small_cat}-${i}`,
+        name: t.task_name,
+        category: t.category,
+        days_before: t.days_before,
+        start_date: calcStartDate(due),
+        due_date: due,
+        assignee: '',
+        status: '未着手',
+        memo: '',
+      }
+    })
     setTaskDrafts(drafts)
   }, [form.small_cat, templates, isEdit])
 
-  // 開催日変更時にタスク期日を再計算
+  // 開催日変更時にタスク期日・開始日を再計算
   useEffect(() => {
     if (!form.event_date) return
-    setTaskDrafts(prev => prev.map(t => ({
-      ...t,
-      due_date: calcDueDate(form.event_date, t.days_before),
-    })))
+    setTaskDrafts(prev => prev.map(t => {
+      const due = calcDueDate(form.event_date, t.days_before)
+      return { ...t, due_date: due, start_date: calcStartDate(due) }
+    }))
   }, [form.event_date])
 
   const handleChange = (field, value) => {
