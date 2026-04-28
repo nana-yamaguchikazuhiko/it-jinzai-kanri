@@ -631,8 +631,9 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const [newUrl, setNewUrl] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [savingCol, setSavingCol] = useState(false)
-  const [editingAnswer, setEditingAnswer] = useState(null) // { id, rowIndex, value }
+  const [editingAnswer, setEditingAnswer] = useState(null) // { id, value }
   const [savingAnswer, setSavingAnswer] = useState(false)
+  const [expandedEditLabel, setExpandedEditLabel] = useState(null) // 回答編集を展開中の質問ラベル
 
   const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
 
@@ -660,6 +661,12 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
         const counts = {}
         answers.forEach(a => { counts[a] = (counts[a] || 0) + 1 })
         return { label, type: 'select', counts: Object.entries(counts).sort((a, b) => b[1] - a[1]), total: answers.length }
+      }
+      if (col?.question_type === 'text_agg') {
+        // 自由記述をグラフ集計 + 編集可能
+        const counts = {}
+        answerRows.forEach(r => { const v = r.value.trim(); counts[v] = (counts[v] || 0) + 1 })
+        return { label, type: 'text_agg', counts: Object.entries(counts).sort((a, b) => b[1] - a[1]), answerRows, total: answerRows.length }
       }
       if (col?.question_type === 'multi') {
         // カンマ・読点・セミコロン区切りで分割して個別集計
@@ -884,7 +891,8 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                   onChange={e => setNewCol(p => ({ ...p, question_type: e.target.value }))}>
                   <option value="select">選択肢（件数集計）</option>
                   <option value="multi">複数選択（個別集計）</option>
-                  <option value="text">自由記述（一覧）</option>
+                  <option value="text_agg">自由記述（グラフ集計・編集可）</option>
+                  <option value="text">自由記述（一覧・編集可）</option>
                 </select>
               </div>
             </div>
@@ -907,7 +915,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
             {surveyColumns.sort((a, b) => Number(a.col_order) - Number(b.col_order)).map(col => (
               <span key={col.id} style={{ fontSize: 11, padding: '4px 10px', background: '#f1f5f9', borderRadius: 4, color: C.secondary, display: 'flex', alignItems: 'center', gap: 5 }}>
                 {col.col_index}列: {col.question_label}
-                <span style={{ fontSize: 10, color: C.muted }}>({col.question_type === 'select' ? '集計' : col.question_type === 'multi' ? '複数' : '自由'})</span>
+                <span style={{ fontSize: 10, color: C.muted }}>({col.question_type === 'select' ? '集計' : col.question_type === 'multi' ? '複数' : col.question_type === 'text_agg' ? '自由グラフ' : '自由'})</span>
                 <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
                   onClick={() => { if (confirm(`「${col.question_label}」の設定を削除しますか？`)) onDeleteSurveyColumn(col.id) }}>×</button>
               </span>
@@ -936,7 +944,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                   {q.label}
                   <span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 8 }}>（{q.total}件）</span>
                 </div>
-                {(q.type === 'select' || q.type === 'multi') ? (
+                {(q.type === 'select' || q.type === 'multi' || q.type === 'text_agg') ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {q.type === 'multi' && (
                       <p style={{ fontSize: 11, color: C.muted, margin: '0 0 4px', fontStyle: 'italic' }}>
@@ -944,8 +952,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                       </p>
                     )}
                     {q.counts.map(([answer, count]) => {
-                      const base = q.type === 'multi' ? q.total : q.total
-                      const pct = base > 0 ? Math.round((count / base) * 100) : 0
+                      const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0
                       return (
                         <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{ width: 160, fontSize: 12, color: C.secondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={answer}>{answer}</div>
@@ -956,6 +963,42 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                         </div>
                       )
                     })}
+                    {/* text_agg: 回答編集トグル */}
+                    {q.type === 'text_agg' && (
+                      <div style={{ marginTop: 8 }}>
+                        <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                          onClick={() => setExpandedEditLabel(expandedEditLabel === q.label ? null : q.label)}>
+                          {expandedEditLabel === q.label ? '▲ 編集を閉じる' : '▼ 回答を編集（表記ゆれを修正）'}
+                        </button>
+                        {expandedEditLabel === q.label && (
+                          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {q.answerRows.map(row => (
+                              <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {editingAnswer?.id === row.id ? (
+                                  <>
+                                    <input type="text" className="form-input" style={{ flex: 1, fontSize: 12, padding: '5px 10px' }}
+                                      value={editingAnswer.value}
+                                      onChange={e => setEditingAnswer(p => ({ ...p, value: e.target.value }))} />
+                                    <button style={{ fontSize: 11, padding: '4px 12px', borderRadius: 5, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}
+                                      onClick={() => handleSaveAnswer(row)} disabled={savingAnswer}>
+                                      {savingAnswer ? '...' : '保存'}
+                                    </button>
+                                    <button style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                                      onClick={() => setEditingAnswer(null)}>✕</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div style={{ flex: 1, padding: '6px 10px', background: '#f8fafc', borderRadius: 5, fontSize: 12, color: C.text }}>{row.value}</div>
+                                    <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                                      onClick={() => setEditingAnswer({ id: row.id, value: row.value })}>編集</button>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
