@@ -552,6 +552,7 @@ export default function EventDetail() {
               onDeleteSurveyColumn={handleDeleteSurveyColumn}
               reloadSurveyResponses={reloadSurveyResponses}
               reloadSurveyColumns={reloadSurveyColumns}
+              reloadFormSync={reloadFormSync}
             />
           )}
         </div>
@@ -620,7 +621,7 @@ function GanttChart({ tasks, ganttData, today }) {
 // ─── 分析・レポートタブ ────────────────────────────────────────────────────────
 
 function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses,
-  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns }) {
+  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns, reloadFormSync }) {
 
   const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
 
@@ -639,6 +640,8 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const [dragIdx, setDragIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [savingOrder, setSavingOrder] = useState(false)
+  const [editingSchool, setEditingSchool] = useState(null) // { oldName, newName }
+  const [savingSchool, setSavingSchool] = useState(false)
 
   const toggleChart = (label) =>
     setChartTypes(p => ({ ...p, [label]: p[label] === 'pie' ? 'bar' : 'pie' }))
@@ -660,6 +663,24 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
       await reloadSurveyColumns()
     } catch (e) { alert('並び替え保存失敗: ' + e.message) }
     finally { setSavingOrder(false) }
+  }
+
+  const handleSaveSchool = async () => {
+    if (!editingSchool) return
+    const { oldName, newName } = editingSchool
+    const trimmed = newName.trim()
+    if (!trimmed) { alert('学校名を入力してください'); return }
+    if (trimmed === oldName) { setEditingSchool(null); return }
+    setSavingSchool(true)
+    try {
+      const targets = formSync.filter(r => r.event_id === eventId && r.type === 'student' && r.school_name === oldName)
+      for (const row of targets) {
+        await updateById('form_sync', row.id, { ...row, school_name: trimmed })
+      }
+      await reloadFormSync()
+      setEditingSchool(null)
+    } catch (e) { alert('更新失敗: ' + e.message) }
+    finally { setSavingSchool(false) }
   }
 
   const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
@@ -839,12 +860,44 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
             ) : (
               <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                 <tbody>
-                  {schoolCounts.map(([school, count]) => (
-                    <tr key={school} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '6px 0', color: C.text }}>{school}</td>
-                      <td style={{ padding: '6px 0', textAlign: 'right', color: C.secondary, fontWeight: 600 }}>{count}名</td>
-                    </tr>
-                  ))}
+                  {schoolCounts.map(([school, count]) => {
+                    const isEditingThis = editingSchool?.oldName === school
+                    return (
+                      <tr key={school} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '5px 0' }}>
+                          {isEditingThis ? (
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ fontSize: 12, padding: '4px 8px', width: '100%' }}
+                              value={editingSchool.newName}
+                              onChange={e => setEditingSchool(p => ({ ...p, newName: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter') handleSaveSchool(); if (e.key === 'Escape') setEditingSchool(null) }}
+                              autoFocus
+                            />
+                          ) : (
+                            <span style={{ color: C.text }}>{school}</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '5px 0', textAlign: 'right', color: C.secondary, fontWeight: 600, whiteSpace: 'nowrap', paddingLeft: 8 }}>{count}名</td>
+                        <td style={{ padding: '5px 0 5px 10px', whiteSpace: 'nowrap' }}>
+                          {isEditingThis ? (
+                            <>
+                              <button style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, marginRight: 6 }}
+                                onClick={handleSaveSchool} disabled={savingSchool}>
+                                {savingSchool ? '...' : '保存'}
+                              </button>
+                              <button style={{ fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
+                                onClick={() => setEditingSchool(null)}>✕</button>
+                            </>
+                          ) : (
+                            <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer' }}
+                              onClick={() => setEditingSchool({ oldName: school, newName: school })}>編集</button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
