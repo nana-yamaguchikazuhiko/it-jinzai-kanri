@@ -964,8 +964,8 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
           </p>
         )}
         {surveyResults.filter(q => q.total > 0).length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {savingOrder && <p style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>並び替えを保存中...</p>}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {savingOrder && <p style={{ fontSize: 12, color: C.muted, textAlign: 'center', gridColumn: '1 / -1' }}>並び替えを保存中...</p>}
             {surveyResults.map((q, qi) => (
               <div key={q.label}
                 draggable
@@ -981,6 +981,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                   opacity: dragIdx === qi ? 0.4 : 1,
                   cursor: 'grab',
                   transition: 'border-color 0.15s, opacity 0.15s',
+                  gridColumn: q.type === 'text' ? '1 / -1' : undefined,
                 }}
               >
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
