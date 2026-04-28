@@ -631,6 +631,8 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const [newUrl, setNewUrl] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [savingCol, setSavingCol] = useState(false)
+  const [editingAnswer, setEditingAnswer] = useState(null) // { id, rowIndex, value }
+  const [savingAnswer, setSavingAnswer] = useState(false)
 
   const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
 
@@ -651,15 +653,37 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
       .map(c => c.question_label)
     return labels.map(label => {
       const col = surveyColumns.find(c => c.question_label === label)
-      const answers = surveyResponses.filter(r => r.question_label === label).map(r => r.value).filter(Boolean)
+      const answerRows = surveyResponses.filter(r => r.question_label === label && r.value)
+      const answers = answerRows.map(r => r.value)
+
       if (col?.question_type === 'select') {
         const counts = {}
         answers.forEach(a => { counts[a] = (counts[a] || 0) + 1 })
         return { label, type: 'select', counts: Object.entries(counts).sort((a, b) => b[1] - a[1]), total: answers.length }
       }
-      return { label, type: 'text', answers, total: answers.length }
+      if (col?.question_type === 'multi') {
+        // カンマ・読点・セミコロン区切りで分割して個別集計
+        const counts = {}
+        answers.forEach(a => {
+          a.split(/[,，、;；]/).map(s => s.trim()).filter(Boolean)
+            .forEach(opt => { counts[opt] = (counts[opt] || 0) + 1 })
+        })
+        return { label, type: 'multi', counts: Object.entries(counts).sort((a, b) => b[1] - a[1]), total: answers.length }
+      }
+      // text: 行オブジェクトごと保持（編集用にidが必要）
+      return { label, type: 'text', answerRows, total: answerRows.length }
     })
   }, [surveyColumns, surveyResponses])
+
+  const handleSaveAnswer = async (row) => {
+    setSavingAnswer(true)
+    try {
+      await updateById('survey_responses', row.id, { ...row, value: editingAnswer.value })
+      reloadSurveyResponses()
+      setEditingAnswer(null)
+    } catch (e) { alert('更新失敗: ' + e.message) }
+    finally { setSavingAnswer(false) }
+  }
 
   const startEdit = () => {
     setForm({ overview: evReport?.overview || '', impression: evReport?.impression || '', speakers: evReport?.speakers || '' })
@@ -859,6 +883,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                 <select className="form-select" value={newCol.question_type}
                   onChange={e => setNewCol(p => ({ ...p, question_type: e.target.value }))}>
                   <option value="select">選択肢（件数集計）</option>
+                  <option value="multi">複数選択（個別集計）</option>
                   <option value="text">自由記述（一覧）</option>
                 </select>
               </div>
@@ -882,7 +907,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
             {surveyColumns.sort((a, b) => Number(a.col_order) - Number(b.col_order)).map(col => (
               <span key={col.id} style={{ fontSize: 11, padding: '4px 10px', background: '#f1f5f9', borderRadius: 4, color: C.secondary, display: 'flex', alignItems: 'center', gap: 5 }}>
                 {col.col_index}列: {col.question_label}
-                <span style={{ fontSize: 10, color: C.muted }}>({col.question_type === 'select' ? '集計' : '自由'})</span>
+                <span style={{ fontSize: 10, color: C.muted }}>({col.question_type === 'select' ? '集計' : col.question_type === 'multi' ? '複数' : '自由'})</span>
                 <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
                   onClick={() => { if (confirm(`「${col.question_label}」の設定を削除しますか？`)) onDeleteSurveyColumn(col.id) }}>×</button>
               </span>
@@ -911,15 +936,21 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                   {q.label}
                   <span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 8 }}>（{q.total}件）</span>
                 </div>
-                {q.type === 'select' ? (
+                {(q.type === 'select' || q.type === 'multi') ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {q.type === 'multi' && (
+                      <p style={{ fontSize: 11, color: C.muted, margin: '0 0 4px', fontStyle: 'italic' }}>
+                        ※ 複数選択を選択肢ごとに集計（回答者数: {q.total}名）
+                      </p>
+                    )}
                     {q.counts.map(([answer, count]) => {
-                      const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0
+                      const base = q.type === 'multi' ? q.total : q.total
+                      const pct = base > 0 ? Math.round((count / base) * 100) : 0
                       return (
                         <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{ width: 160, fontSize: 12, color: C.secondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={answer}>{answer}</div>
                           <div style={{ flex: 1, height: 16, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', maxWidth: 280 }}>
-                            <div style={{ width: `${pct}%`, height: '100%', background: C.primary, borderRadius: 4, transition: 'width 0.4s' }} />
+                            <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: C.primary, borderRadius: 4, transition: 'width 0.4s' }} />
                           </div>
                           <div style={{ fontSize: 12, color: C.text, fontWeight: 600, width: 70, flexShrink: 0 }}>{count}件 ({pct}%)</div>
                         </div>
@@ -928,8 +959,28 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {q.answers.map((a, i) => (
-                      <div key={i} style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 6, fontSize: 12, color: C.text, lineHeight: 1.7 }}>{a}</div>
+                    {q.answerRows.map((row) => (
+                      <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {editingAnswer?.id === row.id ? (
+                          <>
+                            <input type="text" className="form-input" style={{ flex: 1, fontSize: 12, padding: '6px 10px' }}
+                              value={editingAnswer.value}
+                              onChange={e => setEditingAnswer(p => ({ ...p, value: e.target.value }))} />
+                            <button style={{ fontSize: 11, padding: '4px 12px', borderRadius: 5, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}
+                              onClick={() => handleSaveAnswer(row)} disabled={savingAnswer}>
+                              {savingAnswer ? '...' : '保存'}
+                            </button>
+                            <button style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                              onClick={() => setEditingAnswer(null)}>✕</button>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ flex: 1, padding: '8px 12px', background: '#f8fafc', borderRadius: 6, fontSize: 12, color: C.text, lineHeight: 1.7 }}>{row.value}</div>
+                            <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                              onClick={() => setEditingAnswer({ id: row.id, value: row.value })}>編集</button>
+                          </>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
