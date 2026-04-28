@@ -634,6 +634,10 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const [editingAnswer, setEditingAnswer] = useState(null) // { id, value }
   const [savingAnswer, setSavingAnswer] = useState(false)
   const [expandedEditLabel, setExpandedEditLabel] = useState(null) // 回答編集を展開中の質問ラベル
+  const [chartTypes, setChartTypes] = useState({}) // { [label]: 'bar' | 'pie' }
+
+  const toggleChart = (label) =>
+    setChartTypes(p => ({ ...p, [label]: p[label] === 'pie' ? 'bar' : 'pie' }))
 
   const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
 
@@ -940,9 +944,15 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
             {surveyResults.map(q => (
               <div key={q.label}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12 }}>
-                  {q.label}
-                  <span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 8 }}>（{q.total}件）</span>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span>{q.label}</span>
+                  <span style={{ fontSize: 11, color: C.muted, fontWeight: 400 }}>（{q.total}件）</span>
+                  {(q.type === 'select' || q.type === 'multi' || q.type === 'text_agg') && (
+                    <button style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', borderRadius: 5, border: `1px solid ${C.border}`, background: '#fff', color: C.secondary, cursor: 'pointer' }}
+                      onClick={() => toggleChart(q.label)}>
+                      {chartTypes[q.label] === 'pie' ? '棒グラフ' : '円グラフ'}
+                    </button>
+                  )}
                 </div>
                 {(q.type === 'select' || q.type === 'multi' || q.type === 'text_agg') ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -951,7 +961,9 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                         ※ 複数選択を選択肢ごとに集計（回答者数: {q.total}名）
                       </p>
                     )}
-                    {q.counts.map(([answer, count]) => {
+                    {chartTypes[q.label] === 'pie' ? (
+                      <SurveyPieChart counts={q.counts} total={q.total} />
+                    ) : q.counts.map(([answer, count]) => {
                       const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0
                       return (
                         <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1031,6 +1043,56 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
             ))}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ─── SVG 円グラフ ──────────────────────────────────────────────────────────────
+
+const PIE_COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981', '#f97316', '#ec4899', '#6366f1', '#14b8a6']
+
+function SurveyPieChart({ counts, total }) {
+  const cx = 80, cy = 80, r = 72
+
+  const toXY = (angle) => ({
+    x: cx + r * Math.cos((angle - 90) * Math.PI / 180),
+    y: cy + r * Math.sin((angle - 90) * Math.PI / 180),
+  })
+
+  let angle = 0
+  const slices = counts.map(([label, count], i) => {
+    const deg = total > 0 ? (count / total) * 360 : 0
+    const start = angle
+    angle += deg
+    const s = toXY(start)
+    const e = toXY(angle)
+    const large = deg > 180 ? 1 : 0
+    const path = deg >= 359.99
+      ? `M ${cx},${cy - r} A ${r},${r} 0 1 1 ${cx - 0.001},${cy - r} Z`
+      : `M ${cx},${cy} L ${s.x},${s.y} A ${r},${r} 0 ${large} 1 ${e.x},${e.y} Z`
+    const pct = Math.round((count / total) * 100)
+    return { path, color: PIE_COLORS[i % PIE_COLORS.length], label, count, pct }
+  })
+
+  return (
+    <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+      <svg width={160} height={160} viewBox="0 0 160 160" style={{ flexShrink: 0 }}>
+        {slices.map((s, i) => (
+          <path key={i} d={s.path} fill={s.color} stroke="#fff" strokeWidth={1.5}>
+            <title>{s.label}: {s.count}件 ({s.pct}%)</title>
+          </path>
+        ))}
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {slices.map((s, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+            <span style={{ width: 12, height: 12, borderRadius: 2, background: s.color, flexShrink: 0, display: 'inline-block' }} />
+            <span style={{ color: '#64748b', flex: 1, maxWidth: 200 }}>{s.label}</span>
+            <span style={{ fontWeight: 600, color: '#1e2d3d', flexShrink: 0 }}>{s.count}件</span>
+            <span style={{ color: '#94a3b8', width: 44, flexShrink: 0 }}>({s.pct}%)</span>
+          </div>
+        ))}
       </div>
     </div>
   )
