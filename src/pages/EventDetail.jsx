@@ -551,6 +551,7 @@ export default function EventDetail() {
               onAddSurveyColumn={handleAddSurveyColumn}
               onDeleteSurveyColumn={handleDeleteSurveyColumn}
               reloadSurveyResponses={reloadSurveyResponses}
+              reloadSurveyColumns={reloadSurveyColumns}
             />
           )}
         </div>
@@ -619,7 +620,7 @@ function GanttChart({ tasks, ganttData, today }) {
 // ─── 分析・レポートタブ ────────────────────────────────────────────────────────
 
 function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses,
-  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses }) {
+  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns }) {
 
   const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
 
@@ -635,9 +636,31 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const [savingAnswer, setSavingAnswer] = useState(false)
   const [expandedEditLabel, setExpandedEditLabel] = useState(null) // 回答編集を展開中の質問ラベル
   const [chartTypes, setChartTypes] = useState({}) // { [label]: 'bar' | 'pie' }
+  const [dragIdx, setDragIdx] = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
+  const [savingOrder, setSavingOrder] = useState(false)
 
   const toggleChart = (label) =>
     setChartTypes(p => ({ ...p, [label]: p[label] === 'pie' ? 'bar' : 'pie' }))
+
+  const handleDrop = async (toIdx) => {
+    if (dragIdx === null || dragIdx === toIdx) { setDragIdx(null); setDragOverIdx(null); return }
+    const reordered = [...surveyResults]
+    const [moved] = reordered.splice(dragIdx, 1)
+    reordered.splice(toIdx, 0, moved)
+    setDragIdx(null); setDragOverIdx(null)
+    setSavingOrder(true)
+    try {
+      for (let i = 0; i < reordered.length; i++) {
+        const col = surveyColumns.find(c => c.question_label === reordered[i].label)
+        if (col && Number(col.col_order) !== i + 1) {
+          await updateById('survey_columns', col.id, { ...col, col_order: i + 1 })
+        }
+      }
+      await reloadSurveyColumns()
+    } catch (e) { alert('並び替え保存失敗: ' + e.message) }
+    finally { setSavingOrder(false) }
+  }
 
   const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
 
@@ -941,10 +964,27 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
           </p>
         )}
         {surveyResults.filter(q => q.total > 0).length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-            {surveyResults.map(q => (
-              <div key={q.label}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {savingOrder && <p style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>並び替えを保存中...</p>}
+            {surveyResults.map((q, qi) => (
+              <div key={q.label}
+                draggable
+                onDragStart={() => setDragIdx(qi)}
+                onDragOver={e => { e.preventDefault(); setDragOverIdx(qi) }}
+                onDrop={() => handleDrop(qi)}
+                onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
+                style={{
+                  padding: '16px 20px',
+                  background: '#fff',
+                  borderRadius: 10,
+                  border: `2px solid ${dragOverIdx === qi && dragIdx !== qi ? C.primary : C.border}`,
+                  opacity: dragIdx === qi ? 0.4 : 1,
+                  cursor: 'grab',
+                  transition: 'border-color 0.15s, opacity 0.15s',
+                }}
+              >
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 14, color: C.muted, cursor: 'grab', letterSpacing: '-1px', userSelect: 'none' }}>⠿⠿</span>
                   <span>{q.label}</span>
                   <span style={{ fontSize: 11, color: C.muted, fontWeight: 400 }}>（{q.total}件）</span>
                   {(q.type === 'select' || q.type === 'multi' || q.type === 'text_agg') && (
