@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { updateById, appendRow, deleteById, generateId } from '../api/sheets'
@@ -54,6 +54,9 @@ export default function EventDetail() {
   const { rows: eventSH, reload: reloadEventSH } = useSheets('event_stakeholders')
   const { rows: results, reload: reloadResults } = useSheets('results')
   const { rows: formSync, reload: reloadFormSync } = useSheets('form_sync')
+  const { rows: eventReports, reload: reloadReports } = useSheets('event_reports')
+  const { rows: surveyColumns, reload: reloadSurveyColumns } = useSheets('survey_columns')
+  const { rows: surveyResponses, reload: reloadSurveyResponses } = useSheets('survey_responses')
 
   const [activeTab, setActiveTab] = useState('tasks')
 
@@ -79,6 +82,7 @@ export default function EventDetail() {
   const evSHIds = eventSH.filter(r => r.event_id === id).map(r => r.stakeholder_id)
   const evStakeholders = stakeholders.filter(s => evSHIds.includes(s.id))
   const evResult = results.find(r => r.event_id === id)
+  const evReport = eventReports.find(r => r.event_id === id)
   const today = new Date().toISOString().split('T')[0]
   const unlinkedSH = stakeholders.filter(s => !evSHIds.includes(s.id))
 
@@ -156,6 +160,28 @@ export default function EventDetail() {
     } catch (e) { alert('保存失敗: ' + e.message) }
     finally { setSavingResult(false) }
   }
+
+  // ── レポート保存 ──────────────────────────────────────
+  const handleSaveReport = useCallback(async (form) => {
+    const now = new Date().toISOString()
+    if (evReport) {
+      await updateById('event_reports', evReport.id, { ...evReport, ...form, updated_at: now })
+    } else {
+      await appendRow('event_reports', [generateId(), id, form.overview, form.impression, form.speakers, now, now])
+    }
+    await reloadReports()
+  }, [evReport, id, reloadReports])
+
+  const handleAddSurveyColumn = useCallback(async (col, url) => {
+    const order = surveyColumns.filter(c => c.event_id === id).length + 1
+    await appendRow('survey_columns', [generateId(), id, url, col.col_index, col.question_label, col.question_type, order])
+    await reloadSurveyColumns()
+  }, [id, surveyColumns, reloadSurveyColumns])
+
+  const handleDeleteSurveyColumn = useCallback(async (colId) => {
+    await deleteById('survey_columns', colId)
+    await reloadSurveyColumns()
+  }, [reloadSurveyColumns])
 
   // ── SH紐づけ ─────────────────────────────────────────
   const handleAddSH = async () => {
@@ -324,6 +350,7 @@ export default function EventDetail() {
               { key: 'tasks',        label: `タスク (${evTasks.length})` },
               { key: 'gantt',        label: 'ガントチャート' },
               { key: 'stakeholders', label: `ステークホルダー (${evStakeholders.length})` },
+              { key: 'report',       label: '分析・レポート' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                 style={{
@@ -512,6 +539,20 @@ export default function EventDetail() {
               )}
             </>
           )}
+          {/* ── 分析・レポートタブ ────────────────── */}
+          {activeTab === 'report' && (
+            <ReportTab
+              eventId={id}
+              evReport={evReport}
+              formSync={formSync}
+              surveyColumns={surveyColumns.filter(c => c.event_id === id)}
+              surveyResponses={surveyResponses.filter(r => r.event_id === id)}
+              onSaveReport={handleSaveReport}
+              onAddSurveyColumn={handleAddSurveyColumn}
+              onDeleteSurveyColumn={handleDeleteSurveyColumn}
+              reloadSurveyResponses={reloadSurveyResponses}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -570,6 +611,332 @@ function GanttChart({ tasks, ganttData, today }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 12, height: 8, borderRadius: 2, display: 'inline-block', background: '#d1d5db' }} />未着手</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: '#f87171' }} />今日</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: PRIMARY }} />開催日</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── 分析・レポートタブ ────────────────────────────────────────────────────────
+
+function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses,
+  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses }) {
+
+  const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
+
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ overview: '', impression: '', speakers: '' })
+  const [saving, setSaving] = useState(false)
+  const [addingColumn, setAddingColumn] = useState(false)
+  const [newCol, setNewCol] = useState({ col_index: '', question_label: '', question_type: 'select' })
+  const [newUrl, setNewUrl] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [savingCol, setSavingCol] = useState(false)
+
+  const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
+
+  const schoolCounts = useMemo(() => {
+    const rows = formSync.filter(r => r.event_id === eventId && r.type === 'student' && r.school_name)
+    const map = {}
+    rows.forEach(r => { const s = r.school_name?.trim() || '不明'; map[s] = (map[s] || 0) + 1 })
+    return Object.entries(map).sort((a, b) => b[1] - a[1])
+  }, [formSync, eventId])
+
+  const companies = useMemo(() =>
+    [...new Set(formSync.filter(r => r.event_id === eventId && r.type === 'company' && r.company_name).map(r => r.company_name?.trim()).filter(Boolean))]
+  , [formSync, eventId])
+
+  const surveyResults = useMemo(() => {
+    const labels = surveyColumns
+      .sort((a, b) => Number(a.col_order) - Number(b.col_order))
+      .map(c => c.question_label)
+    return labels.map(label => {
+      const col = surveyColumns.find(c => c.question_label === label)
+      const answers = surveyResponses.filter(r => r.question_label === label).map(r => r.value).filter(Boolean)
+      if (col?.question_type === 'select') {
+        const counts = {}
+        answers.forEach(a => { counts[a] = (counts[a] || 0) + 1 })
+        return { label, type: 'select', counts: Object.entries(counts).sort((a, b) => b[1] - a[1]), total: answers.length }
+      }
+      return { label, type: 'text', answers, total: answers.length }
+    })
+  }, [surveyColumns, surveyResponses])
+
+  const startEdit = () => {
+    setForm({ overview: evReport?.overview || '', impression: evReport?.impression || '', speakers: evReport?.speakers || '' })
+    setEditing(true)
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try { await onSaveReport(form); setEditing(false) }
+    catch (e) { alert('保存失敗: ' + e.message) }
+    finally { setSaving(false) }
+  }
+
+  const handleAddColumn = async () => {
+    if (!newCol.col_index || !newCol.question_label) { alert('列番号と質問ラベルを入力してください'); return }
+    const url = existingUrl || newUrl
+    if (!url) { alert('スプレッドシートURLを入力してください'); return }
+    setSavingCol(true)
+    try {
+      await onAddSurveyColumn(newCol, url)
+      setNewCol({ col_index: '', question_label: '', question_type: 'select' })
+      setNewUrl('')
+      setAddingColumn(false)
+    } catch (e) { alert('追加失敗: ' + e.message) }
+    finally { setSavingCol(false) }
+  }
+
+  const handleSync = async () => {
+    if (surveyColumns.length === 0) { alert('アンケート列を設定してください'); return }
+    setSyncing(true)
+    try {
+      const res = await fetch(`/.netlify/functions/sync-survey?event_id=${eventId}`)
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || '同期失敗') }
+      const data = await res.json()
+      reloadSurveyResponses()
+      alert(`${data.synced}件の回答を同期しました（スプレッドシート合計: ${data.total}行）`)
+    } catch (e) { alert('同期失敗: ' + e.message) }
+    finally { setSyncing(false) }
+  }
+
+  const secTitle = { fontSize: 13, fontWeight: 700, color: C.text, paddingBottom: 10, marginBottom: 16, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+  const lbl = { fontSize: 11, fontWeight: 600, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }
+
+  return (
+    <div style={{ padding: '28px 32px' }}>
+
+      {/* ── 基本情報 ── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={secTitle}>
+          <span>基本情報</span>
+          <button style={{ fontSize: 12, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+            onClick={editing ? () => setEditing(false) : startEdit}>
+            {editing ? 'キャンセル' : '編集'}
+          </button>
+        </div>
+
+        {editing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label className="form-label">イベント概要</label>
+              <textarea className="form-input" rows={4} style={{ resize: 'vertical' }}
+                value={form.overview} onChange={e => setForm(p => ({ ...p, overview: e.target.value }))}
+                placeholder="イベントの目的・内容・対象者などを記入..." />
+            </div>
+            <div>
+              <label className="form-label">所感</label>
+              <textarea className="form-input" rows={4} style={{ resize: 'vertical' }}
+                value={form.impression} onChange={e => setForm(p => ({ ...p, impression: e.target.value }))}
+                placeholder="担当者の振り返り・気づきを記入..." />
+            </div>
+            <div>
+              <label className="form-label">登壇者</label>
+              <input type="text" className="form-input"
+                value={form.speakers} onChange={e => setForm(p => ({ ...p, speakers: e.target.value }))}
+                placeholder="例: 山田太郎（株式会社A）、鈴木花子（株式会社B）" />
+            </div>
+            <button style={{ alignSelf: 'flex-start', padding: '8px 24px', borderRadius: 6, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+              onClick={handleSave} disabled={saving}>
+              {saving ? '保存中...' : '保存'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div>
+              <span style={lbl}>イベント概要</span>
+              <p style={{ fontSize: 13, color: evReport?.overview ? C.text : C.muted, lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0 }}>
+                {evReport?.overview || '未入力'}
+              </p>
+            </div>
+            <div>
+              <span style={lbl}>所感</span>
+              <p style={{ fontSize: 13, color: evReport?.impression ? C.text : C.muted, lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0 }}>
+                {evReport?.impression || '未入力'}
+              </p>
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <span style={lbl}>登壇者</span>
+              <p style={{ fontSize: 13, color: evReport?.speakers ? C.text : C.muted, margin: 0 }}>
+                {evReport?.speakers || '未入力'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 申込内訳 ── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={secTitle}><span>申込内訳</span></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          <div>
+            <span style={lbl}>学生申込 学校別内訳</span>
+            {schoolCounts.length === 0 ? (
+              <p style={{ fontSize: 12, color: C.muted, margin: 0, lineHeight: 1.8 }}>
+                データなし
+                <span style={{ display: 'block', fontSize: 11, color: '#d1d5db', marginTop: 4 }}>
+                  ※ 申込フォームGASに school_name 列の取得を追加すると表示されます
+                </span>
+              </p>
+            ) : (
+              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                <tbody>
+                  {schoolCounts.map(([school, count]) => (
+                    <tr key={school} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '6px 0', color: C.text }}>{school}</td>
+                      <td style={{ padding: '6px 0', textAlign: 'right', color: C.secondary, fontWeight: 600 }}>{count}名</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div>
+            <span style={lbl}>参加企業リスト</span>
+            {companies.length === 0 ? (
+              <p style={{ fontSize: 12, color: C.muted, margin: 0, lineHeight: 1.8 }}>
+                データなし
+                <span style={{ display: 'block', fontSize: 11, color: '#d1d5db', marginTop: 4 }}>
+                  ※ 企業申込フォームGASに company_name 列の取得を追加すると表示されます
+                </span>
+              </p>
+            ) : (
+              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: C.text }}>
+                {companies.map(c => <li key={c} style={{ padding: '4px 0' }}>{c}</li>)}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── アンケート集計 ── */}
+      <div>
+        <div style={secTitle}>
+          <span>アンケート集計</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#f1f5f9', color: C.secondary, border: 'none', cursor: 'pointer' }}
+              onClick={() => setAddingColumn(true)}>
+              + 列を追加
+            </button>
+            <button style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', opacity: syncing ? 0.6 : 1 }}
+              onClick={handleSync} disabled={syncing}>
+              {syncing ? '同期中...' : '↻ 同期'}
+            </button>
+          </div>
+        </div>
+
+        {/* スプレッドシートURL表示 */}
+        {existingUrl && (
+          <div style={{ marginBottom: 14, padding: '8px 12px', background: '#f8fafc', borderRadius: 6, fontSize: 11, color: C.secondary, wordBreak: 'break-all' }}>
+            📊 {existingUrl}
+          </div>
+        )}
+
+        {/* 列追加フォーム */}
+        {addingColumn && (
+          <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', marginBottom: 20 }}>
+            {!existingUrl && (
+              <div style={{ marginBottom: 12 }}>
+                <label className="form-label">アンケートスプレッドシートURL</label>
+                <input type="url" className="form-input" value={newUrl} onChange={e => setNewUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/..." />
+                <p style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>※ このスプレッドシートをサービスアカウントと共有してください</p>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 140px', gap: 10, alignItems: 'end' }}>
+              <div>
+                <label className="form-label">列番号</label>
+                <input type="number" className="form-input" min="1" value={newCol.col_index}
+                  onChange={e => setNewCol(p => ({ ...p, col_index: e.target.value }))} placeholder="例: 2" />
+              </div>
+              <div>
+                <label className="form-label">質問ラベル（表示名）</label>
+                <input type="text" className="form-input" value={newCol.question_label}
+                  onChange={e => setNewCol(p => ({ ...p, question_label: e.target.value }))} placeholder="例: 満足度" />
+              </div>
+              <div>
+                <label className="form-label">タイプ</label>
+                <select className="form-select" value={newCol.question_type}
+                  onChange={e => setNewCol(p => ({ ...p, question_type: e.target.value }))}>
+                  <option value="select">選択肢（件数集計）</option>
+                  <option value="text">自由記述（一覧）</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button style={{ padding: '6px 18px', borderRadius: 6, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                onClick={handleAddColumn} disabled={savingCol}>
+                {savingCol ? '追加中...' : '追加'}
+              </button>
+              <button style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
+                onClick={() => { setAddingColumn(false); setNewCol({ col_index: '', question_label: '', question_type: 'select' }); setNewUrl('') }}>
+                キャンセル
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 設定済み列タグ */}
+        {surveyColumns.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
+            {surveyColumns.sort((a, b) => Number(a.col_order) - Number(b.col_order)).map(col => (
+              <span key={col.id} style={{ fontSize: 11, padding: '4px 10px', background: '#f1f5f9', borderRadius: 4, color: C.secondary, display: 'flex', alignItems: 'center', gap: 5 }}>
+                {col.col_index}列: {col.question_label}
+                <span style={{ fontSize: 10, color: C.muted }}>({col.question_type === 'select' ? '集計' : '自由'})</span>
+                <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                  onClick={() => { if (confirm(`「${col.question_label}」の設定を削除しますか？`)) onDeleteSurveyColumn(col.id) }}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* ガイダンス */}
+        {surveyColumns.length === 0 && !addingColumn && (
+          <p style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: '24px 0' }}>
+            「+ 列を追加」からアンケートスプレッドシートのURLと列設定を登録してください
+          </p>
+        )}
+
+        {/* 集計結果 */}
+        {surveyResults.length > 0 && surveyResponses.length === 0 && (
+          <p style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: '24px 0' }}>
+            「↻ 同期」ボタンを押してアンケートデータを取得してください
+          </p>
+        )}
+        {surveyResults.filter(q => q.total > 0).length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            {surveyResults.map(q => (
+              <div key={q.label}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 12 }}>
+                  {q.label}
+                  <span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 8 }}>（{q.total}件）</span>
+                </div>
+                {q.type === 'select' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {q.counts.map(([answer, count]) => {
+                      const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0
+                      return (
+                        <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 160, fontSize: 12, color: C.secondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={answer}>{answer}</div>
+                          <div style={{ flex: 1, height: 16, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', maxWidth: 280 }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: C.primary, borderRadius: 4, transition: 'width 0.4s' }} />
+                          </div>
+                          <div style={{ fontSize: 12, color: C.text, fontWeight: 600, width: 70, flexShrink: 0 }}>{count}件 ({pct}%)</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {q.answers.map((a, i) => (
+                      <div key={i} style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: 6, fontSize: 12, color: C.text, lineHeight: 1.7 }}>{a}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
