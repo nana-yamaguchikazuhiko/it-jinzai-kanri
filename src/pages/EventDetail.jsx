@@ -48,11 +48,32 @@ function CatBadge({ cat }) {
   )
 }
 
+function PortalLink({ label, url }) {
+  if (!url) {
+    return (
+      <span style={{ fontSize: 12, color: TEXT_MUTED }}>
+        <span style={{ fontWeight: 600, color: TEXT_SECONDARY, marginRight: 4 }}>{label}</span>未登録
+      </span>
+    )
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: PRIMARY, textDecoration: 'none', fontWeight: 500 }}
+      onClick={e => e.stopPropagation()}>
+      <span style={{ fontWeight: 600, color: TEXT_SECONDARY, marginRight: 2 }}>{label}</span>
+      {url.length > 40 ? url.slice(0, 40) + '…' : url}
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7M7 1h4m0 0v4m0-4L5 7" />
+      </svg>
+    </a>
+  )
+}
+
 export default function EventDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const { rows: events } = useSheets('events')
+  const { rows: events, reload: reloadEvents } = useSheets('events')
   const { rows: tasks, reload: reloadTasks } = useSheets('tasks')
   const { rows: stakeholders } = useSheets('stakeholders')
   const { rows: eventSH, reload: reloadEventSH } = useSheets('event_stakeholders')
@@ -67,6 +88,11 @@ export default function EventDetail() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const reportRef = useRef(null)
+
+  // ポータルURL
+  const [editingPortal, setEditingPortal] = useState(false)
+  const [portalForm, setPortalForm] = useState({ portal_company_url: '', portal_student_url: '' })
+  const [savingPortal, setSavingPortal] = useState(false)
 
   // 申込・実績
   const [editingResult, setEditingResult] = useState(false)
@@ -174,6 +200,17 @@ export default function EventDetail() {
       setShowPdfModal(false)
     } catch (e) { alert('PDF生成失敗: ' + e.message) }
     finally { setGeneratingPdf(false) }
+  }
+
+  // ── ポータルURL保存 ───────────────────────────────────
+  const handleSavePortal = async () => {
+    setSavingPortal(true)
+    try {
+      await updateById('events', id, { ...event, ...portalForm })
+      await reloadEvents()
+      setEditingPortal(false)
+    } catch (e) { alert('保存失敗: ' + e.message) }
+    finally { setSavingPortal(false) }
   }
 
   // ── イベント削除 ─────────────────────────────────────
@@ -329,6 +366,61 @@ export default function EventDetail() {
               <div style={{ fontSize: 26, fontWeight: 800, color: TEXT_PRIMARY, letterSpacing: '-0.02em' }}>{value}</div>
             </div>
           ))}
+        </div>
+
+        {/* ポータルサイトURL */}
+        <div style={{ ...CARD_STYLE, padding: '18px 24px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: TEXT_SECONDARY, whiteSpace: 'nowrap' }}>ポータルサイト</span>
+
+            {editingPortal ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: TEXT_MUTED, whiteSpace: 'nowrap' }}>企業向け</span>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={portalForm.portal_company_url}
+                    onChange={e => setPortalForm(p => ({ ...p, portal_company_url: e.target.value }))}
+                    style={{ fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', width: 280, fontFamily: 'inherit', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: TEXT_MUTED, whiteSpace: 'nowrap' }}>学生向け</span>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={portalForm.portal_student_url}
+                    onChange={e => setPortalForm(p => ({ ...p, portal_student_url: e.target.value }))}
+                    style={{ fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', width: 280, fontFamily: 'inherit', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                  <button onClick={handleSavePortal} disabled={savingPortal}
+                    style={{ fontSize: 11, padding: '5px 14px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                    {savingPortal ? '保存中...' : '保存'}
+                  </button>
+                  <button onClick={() => setEditingPortal(false)}
+                    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 6, background: '#f1f5f9', color: TEXT_SECONDARY, border: 'none', cursor: 'pointer' }}>
+                    キャンセル
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <PortalLink label="企業向け" url={event.portal_company_url} />
+                <PortalLink label="学生向け" url={event.portal_student_url} />
+                <button
+                  onClick={() => {
+                    setPortalForm({ portal_company_url: event.portal_company_url || '', portal_student_url: event.portal_student_url || '' })
+                    setEditingPortal(true)
+                  }}
+                  style={{ marginLeft: 'auto', fontSize: 11, padding: '5px 14px', borderRadius: 6, background: '#f1f5f9', color: TEXT_SECONDARY, border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                  編集
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* 申込実績 + タスク進捗 */}
