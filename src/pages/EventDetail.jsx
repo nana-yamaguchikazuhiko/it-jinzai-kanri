@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import ReactMarkdown from 'react-markdown'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { updateById, appendRow, deleteById, generateId } from '../api/sheets'
@@ -1254,9 +1255,9 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
         ) : (
           <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e8edf2', minHeight: 80 }}>
             {evReport?.ai_analysis ? (
-              <p style={{ fontSize: 13, color: C.text, lineHeight: 1.9, whiteSpace: 'pre-wrap', margin: 0 }}>
-                {evReport.ai_analysis}
-              </p>
+              <div className="markdown-body">
+                <ReactMarkdown>{evReport.ai_analysis}</ReactMarkdown>
+              </div>
             ) : (
               <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>未入力</p>
             )}
