@@ -19,7 +19,7 @@ export default function Sidebar() {
       {/* ブランド */}
       <div style={{ padding: '28px 22px 22px' }}>
         <p style={{ fontSize: 9, color: 'rgba(6,182,212,0.7)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
-          IT人材確保事業
+          MISA人材確保事業
         </p>
         <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
           運営管理システム

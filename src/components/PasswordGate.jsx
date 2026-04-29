@@ -12,6 +12,8 @@ export default function PasswordGate({ children }) {
 
   // セッション確認（ページリロード時）
   useEffect(() => {
+    // ローカル開発時は認証スキップ
+    if (import.meta.env.DEV) { setAuthed(true); setChecking(false); return }
     const saved = sessionStorage.getItem(SESSION_KEY)
     if (saved === 'true') setAuthed(true)
     setChecking(false)
