@@ -745,12 +745,13 @@ function BudgetTab({ eventId, budgets, reload }) {
   const [saving, setSaving] = useState(false)
 
   const fmtAmt = (n) => (Number(n) || 0).toLocaleString('ja-JP')
-  const totalBudget  = budgets.filter(b => b.type === '予算').reduce((s, b) => s + (Number(b.amount) || 0), 0)
+  const isIncome = (type) => type === '収入' || type === '予算' // 旧データ互換
+  const totalIncome  = budgets.filter(b => isIncome(b.type)).reduce((s, b) => s + (Number(b.amount) || 0), 0)
   const totalExpense = budgets.filter(b => b.type === '支出').reduce((s, b) => s + (Number(b.amount) || 0), 0)
-  const balance = totalBudget - totalExpense
+  const balance = totalIncome - totalExpense
 
   const startEdit = () => {
-    setDraft(budgets.map(b => ({ _key: b.id, id: b.id, item: b.item, type: b.type, amount: b.amount })))
+    setDraft(budgets.map(b => ({ _key: b.id, id: b.id, item: b.item, type: isIncome(b.type) ? '収入' : b.type, amount: b.amount })))
     if (budgets.length === 0) setDraft([{ _key: `new-0`, id: null, item: '', type: '支出', amount: '' }])
     setEditing(true)
   }
@@ -801,7 +802,7 @@ function BudgetTab({ eventId, budgets, reload }) {
           <thead>
             <tr style={{ background: '#fafbfc' }}>
               <th style={th}>項目</th>
-              <th style={th}>予算 / 支出</th>
+              <th style={th}>収入 / 支出</th>
               <th style={{ ...th, textAlign: 'right' }}>金額（円）</th>
               <th style={{ width: 40 }} />
             </tr>
@@ -816,7 +817,7 @@ function BudgetTab({ eventId, budgets, reload }) {
                 <td style={{ padding: '7px 12px', width: 130 }}>
                   <select className="form-select text-xs py-1" value={row.type}
                     onChange={e => updateDraft(row._key, 'type', e.target.value)}>
-                    <option value="予算">予算</option>
+                    <option value="収入">収入</option>
                     <option value="支出">支出</option>
                   </select>
                 </td>
@@ -850,7 +851,7 @@ function BudgetTab({ eventId, budgets, reload }) {
           <thead>
             <tr style={{ background: '#fafbfc' }}>
               <th style={th}>項目</th>
-              <th style={th}>予算 / 支出</th>
+              <th style={th}>収入 / 支出</th>
               <th style={{ ...th, textAlign: 'right' }}>金額（円）</th>
             </tr>
           </thead>
@@ -861,9 +862,9 @@ function BudgetTab({ eventId, budgets, reload }) {
                 <td style={{ padding: '12px 16px' }}>
                   <span style={{
                     fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 600,
-                    background: b.type === '予算' ? '#e0f7fa' : '#fef3c7',
-                    color: b.type === '予算' ? '#0891b2' : '#d97706',
-                  }}>{b.type}</span>
+                    background: isIncome(b.type) ? '#e0f7fa' : '#fef3c7',
+                    color: isIncome(b.type) ? '#0891b2' : '#d97706',
+                  }}>{isIncome(b.type) ? '収入' : '支出'}</span>
                 </td>
                 <td style={{ padding: '12px 20px', fontSize: 13, color: C.text, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                   ¥{fmtAmt(b.amount)}
@@ -871,8 +872,8 @@ function BudgetTab({ eventId, budgets, reload }) {
               </tr>
             ))}
             <tr style={{ borderTop: '2px solid #e8edf2', background: '#f8fafc' }}>
-              <td colSpan={2} style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: '#0891b2' }}>予算合計</td>
-              <td style={{ padding: '10px 20px', fontSize: 14, fontWeight: 800, color: '#0891b2', textAlign: 'right' }}>¥{fmtAmt(totalBudget)}</td>
+              <td colSpan={2} style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: '#0891b2' }}>収入合計</td>
+              <td style={{ padding: '10px 20px', fontSize: 14, fontWeight: 800, color: '#0891b2', textAlign: 'right' }}>¥{fmtAmt(totalIncome)}</td>
             </tr>
             <tr style={{ borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
               <td colSpan={2} style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: '#d97706' }}>支出合計</td>
@@ -880,7 +881,7 @@ function BudgetTab({ eventId, budgets, reload }) {
             </tr>
             <tr style={{ borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
               <td colSpan={2} style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: balance >= 0 ? '#16a34a' : '#ef4444' }}>
-                差額（予算－支出）
+                差額（収入－支出）
               </td>
               <td style={{ padding: '10px 20px', fontSize: 15, fontWeight: 800, textAlign: 'right', color: balance >= 0 ? '#16a34a' : '#ef4444' }}>
                 {balance < 0 ? '▲' : ''}¥{fmtAmt(Math.abs(balance))}
