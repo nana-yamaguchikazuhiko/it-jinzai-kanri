@@ -29,7 +29,8 @@ export async function getSheet(sheetName) {
   if (!data.values || data.values.length === 0) {
     return { headers: [], rows: [] }
   }
-  const [headers, ...rawRows] = data.values
+  const [rawHeaders, ...rawRows] = data.values
+  const headers = rawHeaders.map(h => h.trim())
   const rows = rawRows.map((row, idx) => {
     const obj = { _rowIndex: idx + 2 } // スプレッドシートの行番号（1ヘッダー + 1-indexed）
     headers.forEach((h, i) => {

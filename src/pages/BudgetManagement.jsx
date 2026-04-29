@@ -173,20 +173,12 @@ export default function BudgetManagement() {
                 </div>
               </div>
             ) : catBudget ? (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-                  <span style={{ fontSize: 28, fontWeight: 800, color: '#0891b2', fontVariantNumeric: 'tabular-nums' }}>
-                    ¥{fmtAmt(catBudget.amount)}
-                  </span>
-                  {catBudget.note && (
-                    <span style={{ fontSize: 13, color: TEXT_SECONDARY }}>{catBudget.note}</span>
-                  )}
-                </div>
-                {/* デバッグ: amountが0のとき生データを表示 */}
-                {parseAmt(catBudget.amount) === 0 && (
-                  <pre style={{ fontSize: 10, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', marginTop: 8, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
-                    【デバッグ】catBudget の全キー:{'\n'}{JSON.stringify(catBudget, null, 2)}
-                  </pre>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginTop: 8 }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: '#0891b2', fontVariantNumeric: 'tabular-nums' }}>
+                  ¥{fmtAmt(catBudget.amount)}
+                </span>
+                {catBudget.note && (
+                  <span style={{ fontSize: 13, color: TEXT_SECONDARY }}>{catBudget.note}</span>
                 )}
               </div>
             ) : (
