@@ -9,6 +9,4 @@
   status = 200
 
 [dev]
-  command = "npx vite --port 5173"
   port = 8888
-  targetPort = 5173
