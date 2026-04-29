@@ -41,8 +41,8 @@ export default function BudgetManagement() {
     return order
   }, [events])
 
-  const [activeTab, setActiveTab] = useState('')
-  const currentTab = activeTab || smallCats[0] || ''
+  const [activeTab, setActiveTab] = useState('_summary')
+  const currentTab = activeTab === '_summary' ? (smallCats[0] || '') : activeTab
 
   // 小分類予算（category_budgets から現在タブの行）
   const catBudget = catBudgets.find(b => b.small_cat === currentTab)
@@ -108,22 +108,53 @@ export default function BudgetManagement() {
         <div style={{ textAlign: 'center', color: TEXT_MUTED, padding: '60px 0', fontSize: 14 }}>イベントが登録されていません</div>
       ) : (
         <>
-          {/* 小分類タブ */}
+          {/* タブ */}
           <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, marginBottom: 24, overflowX: 'auto' }}>
+            {/* 全体収支タブ */}
+            <button onClick={() => { setActiveTab('_summary'); setEditingCatBudget(false) }}
+              style={{
+                padding: '10px 18px', fontSize: 12, whiteSpace: 'nowrap', fontFamily: 'inherit',
+                fontWeight: activeTab === '_summary' ? 700 : 400,
+                color: activeTab === '_summary' ? PRIMARY : TEXT_MUTED,
+                background: 'none', border: 'none',
+                borderBottom: activeTab === '_summary' ? `2px solid ${PRIMARY}` : '2px solid transparent',
+                marginBottom: -1, cursor: 'pointer',
+              }}>
+              全体収支
+            </button>
+            {/* 区切り */}
+            <div style={{ width: 1, height: 28, background: BORDER, alignSelf: 'center', margin: '0 4px' }} />
+            {/* 小分類タブ */}
             {smallCats.map(cat => (
               <button key={cat} onClick={() => { setActiveTab(cat); setEditingCatBudget(false) }}
                 style={{
                   padding: '10px 18px', fontSize: 12, whiteSpace: 'nowrap', fontFamily: 'inherit',
-                  fontWeight: currentTab === cat ? 700 : 400,
-                  color: currentTab === cat ? PRIMARY : TEXT_MUTED,
+                  fontWeight: activeTab === cat ? 700 : 400,
+                  color: activeTab === cat ? PRIMARY : TEXT_MUTED,
                   background: 'none', border: 'none',
-                  borderBottom: currentTab === cat ? `2px solid ${PRIMARY}` : '2px solid transparent',
+                  borderBottom: activeTab === cat ? `2px solid ${PRIMARY}` : '2px solid transparent',
                   marginBottom: -1, cursor: 'pointer',
                 }}>
                 {cat}
               </button>
             ))}
           </div>
+
+          {/* ── 全体収支タブ ── */}
+          {activeTab === '_summary' && (
+            <SummaryTab
+              smallCats={smallCats}
+              catBudgets={catBudgets}
+              evBudgets={evBudgets}
+              events={events}
+              parseAmt={parseAmt}
+              fmtAmt={fmtAmt}
+              isIncome={isIncome}
+            />
+          )}
+
+          {/* ── 小分類別タブ コンテンツ ── */}
+          {activeTab !== '_summary' && <>
 
           {/* ── 小分類予算（活動費） ── */}
           <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, padding: '20px 24px', marginBottom: 20 }}>
@@ -289,8 +320,79 @@ export default function BudgetManagement() {
               </tbody>
             </table>
           </div>
+
+          </> /* end activeTab !== '_summary' */}
         </>
       )}
+    </div>
+  )
+}
+
+// ── 全体収支タブ ──
+function SummaryTab({ smallCats, catBudgets, evBudgets, events, parseAmt, fmtAmt, isIncome }) {
+  const rows = smallCats.map(cat => {
+    const catBudget = catBudgets.find(b => b.small_cat === cat)
+    const budget = parseAmt(catBudget?.amount)
+    const catEvents = events.filter(e => e.small_cat === cat)
+    const catEvBudgets = evBudgets.filter(b => catEvents.some(e => e.id === b.event_id))
+    const income  = catEvBudgets.filter(b => isIncome(b.type)).reduce((s, b) => s + parseAmt(b.amount), 0)
+    const expense = catEvBudgets.filter(b => b.type === '支出').reduce((s, b) => s + parseAmt(b.amount), 0)
+    const profit  = budget + income - expense
+    return { cat, budget, income, expense, profit }
+  })
+
+  const totals = rows.reduce(
+    (acc, r) => ({ budget: acc.budget + r.budget, income: acc.income + r.income, expense: acc.expense + r.expense, profit: acc.profit + r.profit }),
+    { budget: 0, income: 0, expense: 0, profit: 0 }
+  )
+
+  const PRIMARY = '#06b6d4'
+  const BORDER = '#e8edf2'
+  const TEXT_PRIMARY = '#1e2d3d'
+  const TEXT_MUTED = '#94a3b8'
+
+  const numCell = (val, color) => ({
+    padding: '13px 20px', fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums',
+    color: color || TEXT_PRIMARY, fontWeight: 600,
+  })
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ background: '#fafbfc', borderBottom: `1px solid ${BORDER}` }}>
+            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'left', letterSpacing: '0.06em' }}>小分類</th>
+            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>予算</th>
+            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>収入</th>
+            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>支出</th>
+            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>利益</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.cat} style={{ borderTop: `1px solid #f1f5f9` }}>
+              <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{r.cat}</td>
+              <td style={numCell(r.budget, '#0891b2')}>¥{fmtAmt(r.budget)}</td>
+              <td style={numCell(r.income, '#16a34a')}>¥{fmtAmt(r.income)}</td>
+              <td style={numCell(r.expense, '#d97706')}>¥{fmtAmt(r.expense)}</td>
+              <td style={numCell(r.profit, r.profit >= 0 ? '#16a34a' : '#ef4444')}>
+                {r.profit < 0 ? '▲' : ''}¥{fmtAmt(Math.abs(r.profit))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ borderTop: `2px solid ${BORDER}`, background: '#f8fafc' }}>
+            <td style={{ padding: '14px 20px', fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>合計</td>
+            <td style={{ ...numCell(totals.budget, '#0891b2'), fontWeight: 800, fontSize: 14 }}>¥{fmtAmt(totals.budget)}</td>
+            <td style={{ ...numCell(totals.income, '#16a34a'), fontWeight: 800, fontSize: 14 }}>¥{fmtAmt(totals.income)}</td>
+            <td style={{ ...numCell(totals.expense, '#d97706'), fontWeight: 800, fontSize: 14 }}>¥{fmtAmt(totals.expense)}</td>
+            <td style={{ ...numCell(totals.profit, totals.profit >= 0 ? '#16a34a' : '#ef4444'), fontWeight: 800, fontSize: 14 }}>
+              {totals.profit < 0 ? '▲' : ''}¥{fmtAmt(Math.abs(totals.profit))}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   )
 }
