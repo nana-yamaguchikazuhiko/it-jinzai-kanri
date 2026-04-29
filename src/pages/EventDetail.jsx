@@ -167,7 +167,7 @@ export default function EventDetail() {
     if (evReport) {
       await updateById('event_reports', evReport.id, { ...evReport, ...form, updated_at: now })
     } else {
-      await appendRow('event_reports', [generateId(), id, form.overview, form.impression, form.speakers, now, now])
+      await appendRow('event_reports', [generateId(), id, form.overview, form.impression, form.speakers, form.ai_analysis || '', now, now])
     }
     await reloadReports()
   }, [evReport, id, reloadReports])
@@ -642,6 +642,9 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const [savingOrder, setSavingOrder] = useState(false)
   const [editingSchool, setEditingSchool] = useState(null) // { oldName, newName }
   const [savingSchool, setSavingSchool] = useState(false)
+  const [editingAI, setEditingAI] = useState(false)
+  const [aiForm, setAiForm] = useState({ ai_analysis: '' })
+  const [savingAI, setSavingAI] = useState(false)
 
   const toggleChart = (label) =>
     setChartTypes(p => ({ ...p, [label]: p[label] === 'pie' ? 'bar' : 'pie' }))
@@ -681,6 +684,20 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
       setEditingSchool(null)
     } catch (e) { alert('更新失敗: ' + e.message) }
     finally { setSavingSchool(false) }
+  }
+
+  const handleSaveAI = async () => {
+    setSavingAI(true)
+    try {
+      await onSaveReport({
+        overview: evReport?.overview || '',
+        impression: evReport?.impression || '',
+        speakers: evReport?.speakers || '',
+        ai_analysis: aiForm.ai_analysis,
+      })
+      setEditingAI(false)
+    } catch (e) { alert('保存失敗: ' + e.message) }
+    finally { setSavingAI(false) }
   }
 
   const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
@@ -1138,6 +1155,53 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
           </div>
         )}
       </div>
+
+      {/* ── AI分析メモ ── */}
+      <div style={{ marginTop: 32 }}>
+        <div style={secTitle}>
+          <span>AI分析メモ</span>
+          <button style={{ fontSize: 12, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+            onClick={() => {
+              if (editingAI) { setEditingAI(false) } else {
+                setAiForm({ ai_analysis: evReport?.ai_analysis || '' })
+                setEditingAI(true)
+              }
+            }}>
+            {editingAI ? 'キャンセル' : '編集'}
+          </button>
+        </div>
+
+        {editingAI ? (
+          <div>
+            <p style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
+              ChatGPT・Claude などで出力した分析内容をここに貼り付けてください
+            </p>
+            <textarea
+              className="form-input"
+              rows={10}
+              style={{ resize: 'vertical', fontSize: 13, lineHeight: 1.8 }}
+              value={aiForm.ai_analysis}
+              onChange={e => setAiForm({ ai_analysis: e.target.value })}
+              placeholder="AI分析の出力結果を貼り付け..."
+            />
+            <button style={{ marginTop: 10, padding: '8px 24px', borderRadius: 6, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+              onClick={handleSaveAI} disabled={savingAI}>
+              {savingAI ? '保存中...' : '保存'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e8edf2', minHeight: 80 }}>
+            {evReport?.ai_analysis ? (
+              <p style={{ fontSize: 13, color: C.text, lineHeight: 1.9, whiteSpace: 'pre-wrap', margin: 0 }}>
+                {evReport.ai_analysis}
+              </p>
+            ) : (
+              <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>未入力</p>
+            )}
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }
