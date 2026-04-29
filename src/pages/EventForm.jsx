@@ -17,6 +17,8 @@ const EMPTY_EVENT = {
   status: '計画中',
   student_form_url: '',
   company_form_url: '',
+  portal_company_url: '',
+  portal_student_url: '',
 }
 
 export default function EventForm() {
@@ -160,6 +162,8 @@ export default function EventForm() {
           status: form.status,
           student_form_url: form.student_form_url,
           company_form_url: form.company_form_url,
+          portal_company_url: form.portal_company_url,
+          portal_student_url: form.portal_student_url,
           created_at: form.created_at,
         })
       } else {
@@ -167,6 +171,7 @@ export default function EventForm() {
           eventId, form.name, form.big_cat, form.mid_cat, form.small_cat,
           form.event_date, form.venue, form.student_goal, form.company_goal,
           form.status || '計画中', form.student_form_url, now, form.company_form_url,
+          form.portal_company_url, form.portal_student_url,
         ])
         for (const t of taskDrafts) {
           if (!t.name) continue
@@ -294,6 +299,20 @@ export default function EventForm() {
                 <input type="url" className="form-input" value={form.company_form_url}
                   onChange={e => handleChange('company_form_url', e.target.value)}
                   placeholder="https://docs.google.com/spreadsheets/..." />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label">企業向けポータルサイト URL</label>
+                <input type="url" className="form-input" value={form.portal_company_url}
+                  onChange={e => handleChange('portal_company_url', e.target.value)}
+                  placeholder="https://..." />
+              </div>
+              <div>
+                <label className="form-label">学生向けポータルサイト URL</label>
+                <input type="url" className="form-input" value={form.portal_student_url}
+                  onChange={e => handleChange('portal_student_url', e.target.value)}
+                  placeholder="https://..." />
               </div>
             </div>
             {isEdit && (
