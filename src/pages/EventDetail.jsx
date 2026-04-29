@@ -83,6 +83,7 @@ export default function EventDetail() {
   const { rows: surveyColumns, reload: reloadSurveyColumns } = useSheets('survey_columns')
   const { rows: surveyResponses, reload: reloadSurveyResponses } = useSheets('survey_responses')
   const { rows: eventDocs, reload: reloadDocs } = useSheets('event_documents')
+  const { rows: eventBudgets, reload: reloadBudgets } = useSheets('event_budgets')
 
   const [activeTab, setActiveTab] = useState('tasks')
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -447,6 +448,7 @@ export default function EventDetail() {
               { key: 'tasks',        label: `タスク (${evTasks.length})` },
               { key: 'gantt',        label: 'ガントチャート' },
               { key: 'stakeholders', label: `ステークホルダー (${evStakeholders.length})` },
+              { key: 'budget',       label: '収支' },
               { key: 'docs',         label: 'ドキュメント' },
               { key: 'report',       label: '分析・レポート' },
             ].map(tab => (
@@ -637,6 +639,14 @@ export default function EventDetail() {
               )}
             </>
           )}
+          {/* ── 収支タブ ──────────────────────────── */}
+          {activeTab === 'budget' && (
+            <BudgetTab
+              eventId={id}
+              budgets={eventBudgets.filter(b => b.event_id === id)}
+              reload={reloadBudgets}
+            />
+          )}
           {/* ── ドキュメントタブ ──────────────────── */}
           {activeTab === 'docs' && (
             <DocsTab
@@ -720,6 +730,165 @@ function GanttChart({ tasks, ganttData, today }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: '#f87171' }} />今日</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: PRIMARY }} />開催日</span>
       </div>
+    </div>
+  )
+}
+
+// ─── 収支タブ ─────────────────────────────────────────────────────────────────
+
+function BudgetTab({ eventId, budgets, reload }) {
+  const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
+  const th = { padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.07em', textTransform: 'uppercase' }
+
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState([])
+  const [saving, setSaving] = useState(false)
+
+  const fmtAmt = (n) => (Number(n) || 0).toLocaleString('ja-JP')
+  const totalBudget  = budgets.filter(b => b.type === '予算').reduce((s, b) => s + (Number(b.amount) || 0), 0)
+  const totalExpense = budgets.filter(b => b.type === '支出').reduce((s, b) => s + (Number(b.amount) || 0), 0)
+  const balance = totalBudget - totalExpense
+
+  const startEdit = () => {
+    setDraft(budgets.map(b => ({ _key: b.id, id: b.id, item: b.item, type: b.type, amount: b.amount })))
+    if (budgets.length === 0) setDraft([{ _key: `new-0`, id: null, item: '', type: '支出', amount: '' }])
+    setEditing(true)
+  }
+
+  const addRow = () => setDraft(p => [...p, { _key: `new-${Date.now()}`, id: null, item: '', type: '支出', amount: '' }])
+  const removeRow = (key) => setDraft(p => p.filter(r => r._key !== key))
+  const updateDraft = (key, field, value) => setDraft(p => p.map(r => r._key === key ? { ...r, [field]: value } : r))
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      for (const b of budgets) await deleteById('event_budgets', b.id)
+      const now = new Date().toISOString()
+      for (const r of draft) {
+        if (!r.item.trim()) continue
+        await appendRow('event_budgets', [generateId(), eventId, r.item, r.type, r.amount || '0', now])
+      }
+      await reload()
+      setEditing(false)
+    } catch (e) { alert('保存失敗: ' + e.message) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ padding: '24px 28px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        {editing ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleSave} disabled={saving}
+              style={{ padding: '7px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              {saving ? '保存中...' : '保存'}
+            </button>
+            <button onClick={() => setEditing(false)}
+              style={{ padding: '7px 14px', background: '#f1f5f9', color: C.secondary, border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
+              キャンセル
+            </button>
+          </div>
+        ) : (
+          <button onClick={startEdit}
+            style={{ padding: '7px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            編集
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#fafbfc' }}>
+              <th style={th}>項目</th>
+              <th style={th}>予算 / 支出</th>
+              <th style={{ ...th, textAlign: 'right' }}>金額（円）</th>
+              <th style={{ width: 40 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {draft.map(row => (
+              <tr key={row._key} style={{ borderTop: '1px solid #f8fafc' }}>
+                <td style={{ padding: '7px 12px' }}>
+                  <input className="form-input text-xs py-1" value={row.item} placeholder="例: 会場費"
+                    onChange={e => updateDraft(row._key, 'item', e.target.value)} />
+                </td>
+                <td style={{ padding: '7px 12px', width: 130 }}>
+                  <select className="form-select text-xs py-1" value={row.type}
+                    onChange={e => updateDraft(row._key, 'type', e.target.value)}>
+                    <option value="予算">予算</option>
+                    <option value="支出">支出</option>
+                  </select>
+                </td>
+                <td style={{ padding: '7px 12px', width: 160 }}>
+                  <input type="number" className="form-input text-xs py-1" value={row.amount} min="0"
+                    style={{ textAlign: 'right' }}
+                    onChange={e => updateDraft(row._key, 'amount', e.target.value)} />
+                </td>
+                <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                  <button onClick={() => removeRow(row._key)}
+                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td colSpan={4} style={{ padding: '8px 12px' }}>
+                <button onClick={addRow}
+                  style={{ width: '100%', fontSize: 12, color: C.primary, background: 'none', border: '1px dashed #06b6d4', borderRadius: 6, padding: '6px 0', cursor: 'pointer' }}>
+                  ＋ 行を追加
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      ) : budgets.length === 0 ? (
+        <p style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: '40px 0' }}>
+          収支が登録されていません
+        </p>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#fafbfc' }}>
+              <th style={th}>項目</th>
+              <th style={th}>予算 / 支出</th>
+              <th style={{ ...th, textAlign: 'right' }}>金額（円）</th>
+            </tr>
+          </thead>
+          <tbody>
+            {budgets.map(b => (
+              <tr key={b.id} style={{ borderTop: '1px solid #f8fafc' }}>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: C.text }}>{b.item}</td>
+                <td style={{ padding: '12px 16px' }}>
+                  <span style={{
+                    fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 600,
+                    background: b.type === '予算' ? '#e0f7fa' : '#fef3c7',
+                    color: b.type === '予算' ? '#0891b2' : '#d97706',
+                  }}>{b.type}</span>
+                </td>
+                <td style={{ padding: '12px 20px', fontSize: 13, color: C.text, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  ¥{fmtAmt(b.amount)}
+                </td>
+              </tr>
+            ))}
+            <tr style={{ borderTop: '2px solid #e8edf2', background: '#f8fafc' }}>
+              <td colSpan={2} style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: '#0891b2' }}>予算合計</td>
+              <td style={{ padding: '10px 20px', fontSize: 14, fontWeight: 800, color: '#0891b2', textAlign: 'right' }}>¥{fmtAmt(totalBudget)}</td>
+            </tr>
+            <tr style={{ borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
+              <td colSpan={2} style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: '#d97706' }}>支出合計</td>
+              <td style={{ padding: '10px 20px', fontSize: 14, fontWeight: 800, color: '#d97706', textAlign: 'right' }}>¥{fmtAmt(totalExpense)}</td>
+            </tr>
+            <tr style={{ borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
+              <td colSpan={2} style={{ padding: '10px 16px', fontSize: 12, fontWeight: 700, color: balance >= 0 ? '#16a34a' : '#ef4444' }}>
+                差額（予算－支出）
+              </td>
+              <td style={{ padding: '10px 20px', fontSize: 15, fontWeight: 800, textAlign: 'right', color: balance >= 0 ? '#16a34a' : '#ef4444' }}>
+                {balance < 0 ? '▲' : ''}¥{fmtAmt(Math.abs(balance))}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ const NAV_ITEMS = [
   { path: '/',             label: 'ダッシュボード',    icon: '⊞' },
   { path: '/events',       label: 'イベント管理',      icon: '◈' },
   { path: '/tasks',        label: 'タスク一覧',        icon: '☑' },
+  { path: '/budget',       label: '予算管理',          icon: '¥' },
   { path: '/stakeholders', label: 'ステークホルダー',  icon: '◎' },
   { path: '/goals',        label: '目標・実績管理',    icon: '◉' },
   { path: '/templates',    label: 'タスクテンプレート', icon: '▤' },
