@@ -16,6 +16,7 @@ export default function SnippetList() {
   const [form, setForm]               = useState(EMPTY_FORM)
   const [saving, setSaving]           = useState(false)
   const [copiedId, setCopiedId]       = useState(null)
+  const [expandedId, setExpandedId]   = useState(null)
 
   const filtered = useMemo(() => {
     return [...snippets]
@@ -190,51 +191,65 @@ export default function SnippetList() {
           {snippets.length === 0 ? '「＋ 追加」からスニペットを登録してください' : '条件に一致するスニペットがありません'}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {filtered.map(snippet => (
-            <div key={snippet.id} style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {filtered.map(snippet => {
+            const isExpanded = expandedId === snippet.id
+            return (
+              <div key={snippet.id} style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
 
-              {/* カードヘッダー */}
-              <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#e0f7fa', color: '#0891b2', fontWeight: 600, flexShrink: 0 }}>
-                  {snippet.category || 'その他'}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{snippet.title}</div>
-                  {snippet.description && (
-                    <div style={{ fontSize: 12, color: C.secondary, marginTop: 2 }}>{snippet.description}</div>
-                  )}
+                {/* 行 */}
+                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {/* 展開トグル */}
+                  <button onClick={() => setExpandedId(isExpanded ? null : snippet.id)}
+                    style={{ fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, width: 20, textAlign: 'center' }}>
+                    {isExpanded ? '▲' : '▶'}
+                  </button>
+
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#e0f7fa', color: '#0891b2', fontWeight: 600, flexShrink: 0 }}>
+                    {snippet.category || 'その他'}
+                  </span>
+
+                  {/* タイトル・説明（クリックで展開） */}
+                  <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                    onClick={() => setExpandedId(isExpanded ? null : snippet.id)}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{snippet.title}</div>
+                    {snippet.description && (
+                      <div style={{ fontSize: 11, color: C.secondary, marginTop: 1 }}>{snippet.description}</div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button onClick={() => handleCopy(snippet)}
+                      style={{
+                        fontSize: 11, padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontWeight: 600,
+                        background: copiedId === snippet.id ? '#dcfce7' : '#f1f5f9',
+                        color: copiedId === snippet.id ? '#16a34a' : C.secondary,
+                        border: 'none', transition: 'background 0.2s',
+                      }}>
+                      {copiedId === snippet.id ? '✓ コピー済み' : 'コピー'}
+                    </button>
+                    <button onClick={() => startEdit(snippet)}
+                      style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                      編集
+                    </button>
+                    <button onClick={() => handleDelete(snippet)}
+                      style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      削除
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <button onClick={() => handleCopy(snippet)}
-                    style={{
-                      fontSize: 12, padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontWeight: 600,
-                      background: copiedId === snippet.id ? '#dcfce7' : '#f1f5f9',
-                      color: copiedId === snippet.id ? '#16a34a' : C.secondary,
-                      border: 'none', transition: 'background 0.2s',
-                    }}>
-                    {copiedId === snippet.id ? '✓ コピー済み' : 'コピー'}
-                  </button>
-                  <button onClick={() => startEdit(snippet)}
-                    style={{ fontSize: 12, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
-                    編集
-                  </button>
-                  <button onClick={() => handleDelete(snippet)}
-                    style={{ fontSize: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    削除
-                  </button>
-                </div>
-              </div>
 
-              {/* コード */}
-              <div style={{ background: '#0f1c2e', padding: '16px 20px', overflowX: 'auto' }}>
-                <pre style={{ margin: 0, fontFamily: '"SF Mono", "Fira Code", "Courier New", monospace', fontSize: 12, lineHeight: 1.7, color: '#e2e8f0', whiteSpace: 'pre' }}>
-                  {snippet.code}
-                </pre>
+                {/* コード（折りたたみ） */}
+                {isExpanded && (
+                  <div style={{ background: '#0f1c2e', padding: '16px 20px', overflowX: 'auto', borderTop: '1px solid #1e3a5f' }}>
+                    <pre style={{ margin: 0, fontFamily: '"SF Mono", "Fira Code", "Courier New", monospace', fontSize: 12, lineHeight: 1.7, color: '#e2e8f0', whiteSpace: 'pre' }}>
+                      {snippet.code}
+                    </pre>
+                  </div>
+                )}
               </div>
-
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
