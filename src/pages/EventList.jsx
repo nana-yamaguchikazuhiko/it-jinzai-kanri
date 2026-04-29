@@ -202,66 +202,55 @@ export default function EventList() {
 }
 
 function AnnualGantt({ events, tasks, onEventClick }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date()
 
-  // イベントごとにタスク期間・開催日を計算、開催日順にソート
-  const eventData = useMemo(() => {
-    return events
-      .map(ev => {
-        const evTasks = tasks.filter(t => t.event_id === ev.id)
-        const dates = evTasks.flatMap(t => [t.start_date, t.due_date]).filter(Boolean)
-        const minDate = dates.length > 0 ? dates.reduce((a, b) => a < b ? a : b) : ev.event_date
-        const maxDate = dates.length > 0 ? dates.reduce((a, b) => a > b ? a : b) : ev.event_date
-        return { ...ev, minDate, maxDate, taskCount: evTasks.length }
-      })
-      .filter(ev => ev.event_date)
-      .sort((a, b) => {
-        if (a.event_date === '通年' && b.event_date !== '通年') return -1
-        if (a.event_date !== '通年' && b.event_date === '通年') return 1
-        return (a.event_date || '').localeCompare(b.event_date || '')
-      })
-  }, [events, tasks])
+  // 現在の年度（4月始まり）
+  const fiscalYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1
 
-  // タイムライン範囲（全イベントをカバー、月の始まり〜終わりに丸める）
-  const { rangeStart, totalDays, monthLabels } = useMemo(() => {
-    const allDates = eventData.flatMap(ev => [ev.minDate, ev.maxDate, ev.event_date]).filter(Boolean)
-    if (allDates.length === 0) return { rangeStart: null, totalDays: 0, monthLabels: [] }
+  // 4月〜3月の12ヶ月（インデックス0=4月, 11=3月）
+  const MONTHS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3]
+  const monthYear = (i) => i < 9 ? fiscalYear : fiscalYear + 1
 
-    const minD = new Date(allDates.reduce((a, b) => a < b ? a : b))
-    const maxD = new Date(allDates.reduce((a, b) => a > b ? a : b))
-
-    const rangeStart = new Date(minD.getFullYear(), minD.getMonth(), 1)
-    const rangeEnd   = new Date(maxD.getFullYear(), maxD.getMonth() + 1, 0)
-    const totalDays  = Math.ceil((rangeEnd - rangeStart) / 864e5)
-
-    const getPos = (dateStr) => {
-      if (!dateStr) return null
-      const diff = Math.ceil((new Date(dateStr) - rangeStart) / 864e5)
-      return Math.max(0, Math.min(100, (diff / totalDays) * 100))
+  // 開催日を位置（0〜100%）に変換。年度外は境界値を返す
+  const getEventPos = (dateStr) => {
+    if (!dateStr || dateStr === '通年') return null
+    const d = new Date(dateStr)
+    const m = d.getMonth() + 1
+    const y = d.getFullYear()
+    for (let i = 0; i < 12; i++) {
+      if (MONTHS[i] === m && monthYear(i) === y) {
+        const days = new Date(y, m, 0).getDate()
+        return (i + (d.getDate() - 1) / days) / 12 * 100
+      }
     }
-
-    const labels = []
-    const cur = new Date(rangeStart)
-    while (cur <= rangeEnd) {
-      labels.push({
-        label: `${cur.getMonth() + 1}月`,
-        yearLabel: cur.getMonth() === 0 ? `${cur.getFullYear()}` : null,
-        pos: getPos(cur.toISOString().split('T')[0]),
-      })
-      cur.setMonth(cur.getMonth() + 1)
-    }
-
-    return { rangeStart, totalDays, monthLabels: labels }
-  }, [eventData])
-
-  const getPos = (dateStr) => {
-    if (!dateStr || !rangeStart) return null
-    const diff = Math.ceil((new Date(dateStr) - rangeStart) / 864e5)
-    return Math.max(0, Math.min(100, (diff / totalDays) * 100))
+    if (d < new Date(fiscalYear, 3, 1)) return 0
+    if (d > new Date(fiscalYear + 1, 2, 31)) return 100
+    return null
   }
 
-  const todayPos = getPos(today)
-  const NAME_W = 220
+  // 今日の位置
+  const todayPos = (() => {
+    const m = today.getMonth() + 1
+    const y = today.getFullYear()
+    for (let i = 0; i < 12; i++) {
+      if (MONTHS[i] === m && monthYear(i) === y) {
+        const days = new Date(y, m, 0).getDate()
+        return (i + (today.getDate() - 1) / days) / 12 * 100
+      }
+    }
+    return null
+  })()
+
+  const eventData = useMemo(() => events
+    .map(ev => ({ ...ev, taskCount: tasks.filter(t => t.event_id === ev.id).length }))
+    .sort((a, b) => {
+      if (a.event_date === '通年' && b.event_date !== '通年') return -1
+      if (a.event_date !== '通年' && b.event_date === '通年') return 1
+      return (a.event_date || '').localeCompare(b.event_date || '')
+    })
+  , [events, tasks])
+
+  const NAME_W = 210
 
   if (eventData.length === 0) {
     return (
@@ -275,37 +264,37 @@ function AnnualGantt({ events, tasks, onEventClick }) {
     <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e8edf2', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', padding: '24px 28px', overflowX: 'auto' }}>
       <div style={{ minWidth: 700 }}>
 
+        {/* 年度ヘッダー */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 10 }}>
+          {fiscalYear}年度（{fiscalYear}年4月 〜 {fiscalYear + 1}年3月）
+        </div>
+
         {/* 月ラベル行 */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 6 }}>
+        <div style={{ display: 'flex', marginBottom: 4 }}>
           <div style={{ width: NAME_W, flexShrink: 0 }} />
-          <div style={{ flex: 1, position: 'relative', height: 32 }}>
-            {/* 年ラベル */}
-            {monthLabels.filter(m => m.yearLabel).map((m, i) => (
-              <span key={`y${i}`} style={{ position: 'absolute', fontSize: 10, color: '#94a3b8', fontWeight: 700, left: `${m.pos}%`, top: 0, transform: 'translateX(-50%)' }}>
-                {m.yearLabel}
-              </span>
-            ))}
-            {/* 月ラベル */}
-            {monthLabels.map((m, i) => (
-              <span key={i} style={{ position: 'absolute', fontSize: 10, color: '#94a3b8', left: `${m.pos}%`, bottom: 0, transform: 'translateX(-50%)' }}>
-                {m.label}
-              </span>
+          <div style={{ flex: 1, display: 'flex' }}>
+            {MONTHS.map((m, i) => (
+              <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                {m === 1 && (
+                  <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, lineHeight: 1 }}>
+                    {fiscalYear + 1}
+                  </div>
+                )}
+                <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.8 }}>{m}月</div>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* 月グリッド線 + イベント行 */}
-        <div style={{ position: 'relative' }}>
-          {eventData.map(ev => {
-            const barStart  = getPos(ev.minDate)
-            const barEnd    = getPos(ev.maxDate)
-            const eventPos  = getPos(ev.event_date)
-            const barWidth  = (barStart !== null && barEnd !== null) ? Math.max(barEnd - barStart, 0.5) : 0
-            const barColor  = '#93c5fd'
+        {/* イベント行 */}
+        <div>
+          {eventData.map((ev, rowIdx) => {
+            const isNennen = ev.event_date === '通年'
+            const eventPos = getEventPos(ev.event_date)
 
             return (
               <div key={ev.id}
-                style={{ display: 'flex', alignItems: 'center', marginBottom: 8, cursor: 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', marginBottom: 5, cursor: 'pointer' }}
                 onClick={() => onEventClick(ev.id)}>
 
                 {/* イベント名 */}
@@ -314,17 +303,17 @@ function AnnualGantt({ events, tasks, onEventClick }) {
                     {ev.name}
                   </div>
                   {ev.small_cat && (
-                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#e0f7fa', color: '#0891b2', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#e0f7fa', color: '#0891b2', fontWeight: 500, whiteSpace: 'nowrap' }}>
                       {ev.small_cat}
                     </span>
                   )}
                 </div>
 
-                {/* チャートエリア */}
-                <div style={{ flex: 1, position: 'relative', height: 32, background: '#f8fafc', borderRadius: 4 }}>
-                  {/* 月グリッド線 */}
-                  {monthLabels.map((m, i) => (
-                    <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${m.pos}%`, width: 1, background: '#e8edf2' }} />
+                {/* チャートエリア（12等分） */}
+                <div style={{ flex: 1, position: 'relative', height: 32, background: rowIdx % 2 === 0 ? '#f8fafc' : '#fff', border: '1px solid #e8edf2', borderRadius: 4 }}>
+                  {/* 月区切り線 */}
+                  {[1,2,3,4,5,6,7,8,9,10,11].map(i => (
+                    <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${i/12*100}%`, width: 1, background: '#e8edf2' }} />
                   ))}
 
                   {/* 今日の縦線 */}
@@ -332,24 +321,28 @@ function AnnualGantt({ events, tasks, onEventClick }) {
                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPos}%`, width: 1.5, background: '#f87171', zIndex: 4 }} />
                   )}
 
-                  {/* タスク期間バー */}
-                  {barStart !== null && barWidth > 0 && (
+                  {/* 通年バー */}
+                  {isNennen && (
                     <div style={{
-                      position: 'absolute', top: 6, height: 12, borderRadius: 6,
-                      left: `${barStart}%`, width: `${barWidth}%`,
-                      background: barColor, zIndex: 2,
-                    }} />
+                      position: 'absolute', top: 5, left: 3, right: 3, height: 22,
+                      background: 'linear-gradient(90deg, #06b6d4 0%, #0891b2 100%)',
+                      borderRadius: 5, zIndex: 2,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <span style={{ fontSize: 10, color: '#fff', fontWeight: 700, letterSpacing: 1 }}>通年</span>
+                    </div>
                   )}
 
-                  {/* 開催日マーカー（円形） */}
-                  {eventPos !== null && (
+                  {/* 開催日マーカー */}
+                  {!isNennen && eventPos !== null && (
                     <div title={`開催日: ${formatDate(ev.event_date)}`}
                       style={{
                         position: 'absolute', top: '50%', left: `${eventPos}%`,
                         transform: 'translate(-50%, -50%)',
-                        width: 12, height: 12, borderRadius: '50%',
-                        background: '#06b6d4', border: '2px solid #fff',
-                        boxShadow: '0 0 0 1.5px #06b6d4',
+                        width: 14, height: 14, borderRadius: '50%',
+                        background: STATUS_BAR_COLOR[ev.status] || '#06b6d4',
+                        border: '2px solid #fff',
+                        boxShadow: '0 0 0 1.5px #94a3b8',
                         zIndex: 3,
                       }} />
                   )}
@@ -360,12 +353,12 @@ function AnnualGantt({ events, tasks, onEventClick }) {
         </div>
 
         {/* 凡例 */}
-        <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap', fontSize: 11, color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
+        <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap', fontSize: 11, color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 20, height: 8, borderRadius: 3, background: '#93c5fd' }} />タスク期間
+            <span style={{ display: 'inline-block', width: 24, height: 10, borderRadius: 3, background: 'linear-gradient(90deg, #06b6d4, #0891b2)' }} />通年イベント
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: '#06b6d4' }} />開催日
+            <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: '#06b6d4', border: '2px solid #fff', boxShadow: '0 0 0 1.5px #94a3b8' }} />開催日
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ display: 'inline-block', width: 2, height: 12, background: '#f87171' }} />今日
