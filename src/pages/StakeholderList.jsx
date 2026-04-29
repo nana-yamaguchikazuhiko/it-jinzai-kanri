@@ -165,6 +165,10 @@ export default function StakeholderList() {
                                 <span>{s.position || '—'}</span>
                               </div>
                               <div>
+                                <span className="text-gray-400">機関種別:</span>{' '}
+                                <span>{s.institution_type || '—'}</span>
+                              </div>
+                              <div>
                                 <span className="text-gray-400">メール:</span>{' '}
                                 <span>{s.email || '—'}</span>
                               </div>

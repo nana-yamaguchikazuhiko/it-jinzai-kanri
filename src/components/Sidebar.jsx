@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { path: '/templates',    label: 'タスクテンプレート', icon: '▤' },
   { path: '/mails',        label: '問い合わせ管理',     icon: '✉' },
   { path: '/snippets',    label: 'スニペット',         icon: '〈〉' },
+  { path: '/fieldnotes', label: 'フィールドノート',   icon: '✎' },
 ]
 
 export default function Sidebar() {

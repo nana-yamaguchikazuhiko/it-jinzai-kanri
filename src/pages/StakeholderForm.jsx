@@ -6,6 +6,7 @@ import { appendRow, updateById, generateId } from '../api/sheets'
 const EMPTY_SH = {
   name: '',
   type: '',
+  institution_type: '',
   contact_name: '',
   department: '',
   position: '',
@@ -19,6 +20,7 @@ const EMPTY_SH = {
 }
 
 const SH_TYPES = ['会員企業', '委員会企業', '教育機関', '行政', '求職者', 'その他']
+const INSTITUTION_TYPES = ['大学・高専_情報系', '大学・短大_非情報系', '専門学校', '企業', '行政', 'その他']
 const CONTACT_STATUSES = ['未連絡', '連絡中', '送付済', '回答済']
 
 export default function StakeholderForm() {
@@ -70,6 +72,7 @@ export default function StakeholderForm() {
           form.memo,
           form.department,
           form.position,
+          form.institution_type,
         ])
       }
       navigate('/stakeholders')
@@ -121,6 +124,18 @@ export default function StakeholderForm() {
                   {SH_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+            </div>
+            <div>
+              <label className="form-label">機関種別（フィールドノート分類）</label>
+              <select
+                className="form-select"
+                value={form.institution_type}
+                onChange={e => handleChange('institution_type', e.target.value)}
+              >
+                <option value="">選択...</option>
+                {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">フィールドノートにステークホルダーを紐づける際の分類に使用します</p>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
