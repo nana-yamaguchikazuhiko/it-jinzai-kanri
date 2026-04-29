@@ -744,10 +744,11 @@ function BudgetTab({ eventId, budgets, reload }) {
   const [draft, setDraft] = useState([])
   const [saving, setSaving] = useState(false)
 
-  const fmtAmt = (n) => (Number(n) || 0).toLocaleString('ja-JP')
+  const parseAmt = (n) => Number(String(n ?? '').replace(/[,¥\s]/g, '')) || 0
+  const fmtAmt = (n) => parseAmt(n).toLocaleString('ja-JP')
   const isIncome = (type) => type === '収入' || type === '予算' // 旧データ互換
-  const totalIncome  = budgets.filter(b => isIncome(b.type)).reduce((s, b) => s + (Number(b.amount) || 0), 0)
-  const totalExpense = budgets.filter(b => b.type === '支出').reduce((s, b) => s + (Number(b.amount) || 0), 0)
+  const totalIncome  = budgets.filter(b => isIncome(b.type)).reduce((s, b) => s + parseAmt(b.amount), 0)
+  const totalExpense = budgets.filter(b => b.type === '支出').reduce((s, b) => s + parseAmt(b.amount), 0)
   const balance = totalIncome - totalExpense
 
   const startEdit = () => {

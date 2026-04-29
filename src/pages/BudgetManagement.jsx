@@ -16,7 +16,9 @@ function formatDate(dateStr) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
-const fmtAmt = (n) => (Number(n) || 0).toLocaleString('ja-JP')
+// Google Sheets が "500,000" のようにカンマ区切りで返す場合に対応
+const parseAmt = (n) => Number(String(n ?? '').replace(/[,¥\s]/g, '')) || 0
+const fmtAmt = (n) => parseAmt(n).toLocaleString('ja-JP')
 const isIncome = (type) => type === '収入' || type === '予算' // 旧データ互換
 
 const thStyle = {
@@ -87,9 +89,9 @@ export default function BudgetManagement() {
   , [evBudgets, tabEvents])
 
   // サマリー計算
-  const catBudgetAmt  = Number(catBudget?.amount) || 0
-  const evIncomeTotal = tabEvBudgets.filter(b => isIncome(b.type)).reduce((s, b) => s + (Number(b.amount) || 0), 0)
-  const evExpenseTotal= tabEvBudgets.filter(b => b.type === '支出').reduce((s, b) => s + (Number(b.amount) || 0), 0)
+  const catBudgetAmt  = parseAmt(catBudget?.amount)
+  const evIncomeTotal = tabEvBudgets.filter(b => isIncome(b.type)).reduce((s, b) => s + parseAmt(b.amount), 0)
+  const evExpenseTotal= tabEvBudgets.filter(b => b.type === '支出').reduce((s, b) => s + parseAmt(b.amount), 0)
   const balance = catBudgetAmt + evIncomeTotal - evExpenseTotal
 
   const loading = le || lb || lc
@@ -190,8 +192,8 @@ export default function BudgetManagement() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {tabEvents.map(ev => {
                 const evItems = evBudgets.filter(b => b.event_id === ev.id)
-                const evIncome  = evItems.filter(b => isIncome(b.type)).reduce((s, b) => s + (Number(b.amount) || 0), 0)
-                const evExpense = evItems.filter(b => b.type === '支出').reduce((s, b) => s + (Number(b.amount) || 0), 0)
+                const evIncome  = evItems.filter(b => isIncome(b.type)).reduce((s, b) => s + parseAmt(b.amount), 0)
+                const evExpense = evItems.filter(b => b.type === '支出').reduce((s, b) => s + parseAmt(b.amount), 0)
                 const evBal = evIncome - evExpense
 
                 return (
