@@ -147,9 +147,6 @@ export default function BudgetManagement() {
               catBudgets={catBudgets}
               evBudgets={evBudgets}
               events={events}
-              parseAmt={parseAmt}
-              fmtAmt={fmtAmt}
-              isIncome={isIncome}
             />
           )}
 
@@ -329,67 +326,72 @@ export default function BudgetManagement() {
 }
 
 // ── 全体収支タブ ──
-function SummaryTab({ smallCats, catBudgets, evBudgets, events, parseAmt, fmtAmt, isIncome }) {
+function SummaryTab({ smallCats, catBudgets, evBudgets, events }) {
+  const BORDER = '#e8edf2'
+  const TEXT_PRIMARY = '#1e2d3d'
+  const TEXT_MUTED = '#94a3b8'
+
   const rows = smallCats.map(cat => {
     const catBudget = catBudgets.find(b => b.small_cat === cat)
-    const budget = parseAmt(catBudget?.amount)
-    const catEvents = events.filter(e => e.small_cat === cat)
-    const catEvBudgets = evBudgets.filter(b => catEvents.some(e => e.id === b.event_id))
-    const income  = catEvBudgets.filter(b => isIncome(b.type)).reduce((s, b) => s + parseAmt(b.amount), 0)
-    const expense = catEvBudgets.filter(b => b.type === '支出').reduce((s, b) => s + parseAmt(b.amount), 0)
+    const budget  = parseAmt(catBudget?.amount)
+    const catEvs  = events.filter(e => e.small_cat === cat)
+    const items   = evBudgets.filter(b => catEvs.some(e => e.id === b.event_id))
+    const income  = items.filter(b => isIncome(b.type)).reduce((s, b) => s + parseAmt(b.amount), 0)
+    const expense = items.filter(b => b.type === '支出').reduce((s, b) => s + parseAmt(b.amount), 0)
     const profit  = budget + income - expense
     return { cat, budget, income, expense, profit }
   })
 
   const totals = rows.reduce(
-    (acc, r) => ({ budget: acc.budget + r.budget, income: acc.income + r.income, expense: acc.expense + r.expense, profit: acc.profit + r.profit }),
+    (acc, r) => ({
+      budget:  acc.budget  + r.budget,
+      income:  acc.income  + r.income,
+      expense: acc.expense + r.expense,
+      profit:  acc.profit  + r.profit,
+    }),
     { budget: 0, income: 0, expense: 0, profit: 0 }
   )
 
-  const PRIMARY = '#06b6d4'
-  const BORDER = '#e8edf2'
-  const TEXT_PRIMARY = '#1e2d3d'
-  const TEXT_MUTED = '#94a3b8'
-
-  const numCell = (val, color) => ({
-    padding: '13px 20px', fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums',
-    color: color || TEXT_PRIMARY, fontWeight: 600,
-  })
+  const tdNum = (val, color, bold) => (
+    <td style={{
+      padding: '13px 20px', fontSize: bold ? 14 : 13, textAlign: 'right',
+      fontVariantNumeric: 'tabular-nums', color, fontWeight: bold ? 800 : 600,
+    }}>
+      {val < 0 ? '▲' : ''}¥{fmtAmt(Math.abs(val))}
+    </td>
+  )
 
   return (
     <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#fafbfc', borderBottom: `1px solid ${BORDER}` }}>
-            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'left', letterSpacing: '0.06em' }}>小分類</th>
-            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>予算</th>
-            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>収入</th>
-            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>支出</th>
-            <th style={{ padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textAlign: 'right', letterSpacing: '0.06em' }}>利益</th>
+            {['小分類', '予算', '収入', '支出', '利益'].map((h, i) => (
+              <th key={h} style={{
+                padding: '11px 20px', fontSize: 11, fontWeight: 700, color: TEXT_MUTED,
+                textAlign: i === 0 ? 'left' : 'right', letterSpacing: '0.06em',
+              }}>{h}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {rows.map(r => (
             <tr key={r.cat} style={{ borderTop: `1px solid #f1f5f9` }}>
               <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{r.cat}</td>
-              <td style={numCell(r.budget, '#0891b2')}>¥{fmtAmt(r.budget)}</td>
-              <td style={numCell(r.income, '#16a34a')}>¥{fmtAmt(r.income)}</td>
-              <td style={numCell(r.expense, '#d97706')}>¥{fmtAmt(r.expense)}</td>
-              <td style={numCell(r.profit, r.profit >= 0 ? '#16a34a' : '#ef4444')}>
-                {r.profit < 0 ? '▲' : ''}¥{fmtAmt(Math.abs(r.profit))}
-              </td>
+              {tdNum(r.budget,  '#0891b2')}
+              {tdNum(r.income,  '#16a34a')}
+              {tdNum(r.expense, '#d97706')}
+              {tdNum(r.profit,  r.profit >= 0 ? '#16a34a' : '#ef4444')}
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr style={{ borderTop: `2px solid ${BORDER}`, background: '#f8fafc' }}>
             <td style={{ padding: '14px 20px', fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>合計</td>
-            <td style={{ ...numCell(totals.budget, '#0891b2'), fontWeight: 800, fontSize: 14 }}>¥{fmtAmt(totals.budget)}</td>
-            <td style={{ ...numCell(totals.income, '#16a34a'), fontWeight: 800, fontSize: 14 }}>¥{fmtAmt(totals.income)}</td>
-            <td style={{ ...numCell(totals.expense, '#d97706'), fontWeight: 800, fontSize: 14 }}>¥{fmtAmt(totals.expense)}</td>
-            <td style={{ ...numCell(totals.profit, totals.profit >= 0 ? '#16a34a' : '#ef4444'), fontWeight: 800, fontSize: 14 }}>
-              {totals.profit < 0 ? '▲' : ''}¥{fmtAmt(Math.abs(totals.profit))}
-            </td>
+            {tdNum(totals.budget,  '#0891b2', true)}
+            {tdNum(totals.income,  '#16a34a', true)}
+            {tdNum(totals.expense, '#d97706', true)}
+            {tdNum(totals.profit,  totals.profit >= 0 ? '#16a34a' : '#ef4444', true)}
           </tr>
         </tfoot>
       </table>
