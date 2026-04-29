@@ -297,7 +297,7 @@ export default function EventDetail() {
       )}
 
       {/* ── Main Content ────────────────────────────── */}
-      <div style={{ padding: '32px 36px' }}>
+      <div ref={reportRef} style={{ padding: '32px 36px' }}>
 
         {/* イベントヘッダー */}
         <div style={{ marginBottom: 28 }}>
@@ -615,7 +615,6 @@ export default function EventDetail() {
               reloadSurveyResponses={reloadSurveyResponses}
               reloadSurveyColumns={reloadSurveyColumns}
               reloadFormSync={reloadFormSync}
-              containerRef={reportRef}
             />
           )}
         </div>
@@ -684,7 +683,7 @@ function GanttChart({ tasks, ganttData, today }) {
 // ─── 分析・レポートタブ ────────────────────────────────────────────────────────
 
 function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses,
-  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns, reloadFormSync, containerRef }) {
+  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns, reloadFormSync }) {
 
   const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
 
@@ -863,7 +862,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const lbl = { fontSize: 11, fontWeight: 600, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }
 
   return (
-    <div ref={containerRef} style={{ padding: '28px 32px' }}>
+    <div style={{ padding: '28px 32px' }}>
 
       {/* ── 基本情報 ── */}
       <div style={{ marginBottom: 32 }}>
