@@ -6,6 +6,7 @@ import { ALL_SMALL_CATS } from '../constants/categories'
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
+  if (dateStr === '通年') return '通年'
   const d = new Date(dateStr)
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
@@ -207,7 +208,11 @@ function AnnualGantt({ events, tasks, onEventClick }) {
         return { ...ev, minDate, maxDate, taskCount: evTasks.length }
       })
       .filter(ev => ev.event_date)
-      .sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''))
+      .sort((a, b) => {
+        if (a.event_date === '通年' && b.event_date !== '通年') return -1
+        if (a.event_date !== '通年' && b.event_date === '通年') return 1
+        return (a.event_date || '').localeCompare(b.event_date || '')
+      })
   }, [events, tasks])
 
   // タイムライン範囲（全イベントをカバー、月の始まり〜終わりに丸める）
