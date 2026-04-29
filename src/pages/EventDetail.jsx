@@ -17,6 +17,7 @@ const CARD_STYLE = { background: '#fff', borderRadius: 14, border: `1px solid ${
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
+  if (dateStr === '通年') return '通年'
   const d = new Date(dateStr)
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
@@ -60,6 +61,7 @@ export default function EventDetail() {
   const { rows: eventReports, reload: reloadReports } = useSheets('event_reports')
   const { rows: surveyColumns, reload: reloadSurveyColumns } = useSheets('survey_columns')
   const { rows: surveyResponses, reload: reloadSurveyResponses } = useSheets('survey_responses')
+  const { rows: eventDocs, reload: reloadDocs } = useSheets('event_documents')
 
   const [activeTab, setActiveTab] = useState('tasks')
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -413,6 +415,7 @@ export default function EventDetail() {
               { key: 'tasks',        label: `タスク (${evTasks.length})` },
               { key: 'gantt',        label: 'ガントチャート' },
               { key: 'stakeholders', label: `ステークホルダー (${evStakeholders.length})` },
+              { key: 'docs',         label: 'ドキュメント' },
               { key: 'report',       label: '分析・レポート' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -602,6 +605,14 @@ export default function EventDetail() {
               )}
             </>
           )}
+          {/* ── ドキュメントタブ ──────────────────── */}
+          {activeTab === 'docs' && (
+            <DocsTab
+              eventId={id}
+              docs={eventDocs.filter(d => d.event_id === id)}
+              reload={reloadDocs}
+            />
+          )}
           {/* ── 分析・レポートタブ ────────────────── */}
           {activeTab === 'report' && (
             <ReportTab
@@ -677,6 +688,120 @@ function GanttChart({ tasks, ganttData, today }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: '#f87171' }} />今日</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 12, borderRadius: 1, display: 'inline-block', background: PRIMARY }} />開催日</span>
       </div>
+    </div>
+  )
+}
+
+// ─── ドキュメントタブ ──────────────────────────────────────────────────────────
+
+function DocsTab({ eventId, docs, reload }) {
+  const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ name: '', url: '', memo: '' })
+  const [saving, setSaving] = useState(false)
+  const sorted = [...docs].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+
+  const handleAdd = async () => {
+    if (!form.name.trim() || !form.url.trim()) { alert('ドキュメント名とURLは必須です'); return }
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      await appendRow('event_documents', [generateId(), eventId, form.name, form.url, form.memo, now])
+      await reload()
+      setForm({ name: '', url: '', memo: '' })
+      setAdding(false)
+    } catch (e) { alert('追加失敗: ' + e.message) }
+    finally { setSaving(false) }
+  }
+
+  const handleDelete = async (doc) => {
+    if (!confirm(`「${doc.name}」を削除しますか？`)) return
+    try { await deleteById('event_documents', doc.id); reload() }
+    catch (e) { alert('削除失敗: ' + e.message) }
+  }
+
+  return (
+    <div style={{ padding: '24px 28px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button onClick={() => setAdding(true)}
+          style={{ padding: '7px 18px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          ＋ ドキュメントを追加
+        </button>
+      </div>
+
+      {adding && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div>
+              <label className="form-label">ドキュメント名 *</label>
+              <input type="text" className="form-input" value={form.name}
+                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="例: キックオフ議事録" />
+            </div>
+            <div>
+              <label className="form-label">URL *</label>
+              <input type="url" className="form-input" value={form.url}
+                onChange={e => setForm(p => ({ ...p, url: e.target.value }))}
+                placeholder="https://docs.google.com/..." />
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label className="form-label">メモ</label>
+            <input type="text" className="form-input" value={form.memo}
+              onChange={e => setForm(p => ({ ...p, memo: e.target.value }))}
+              placeholder="補足メモ..." />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleAdd} disabled={saving}
+              style={{ padding: '6px 20px', borderRadius: 6, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+              {saving ? '追加中...' : '追加'}
+            </button>
+            <button onClick={() => { setAdding(false); setForm({ name: '', url: '', memo: '' }) }}
+              style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}>
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sorted.length === 0 && !adding ? (
+        <p style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: '32px 0' }}>ドキュメントが登録されていません</p>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#fafbfc' }}>
+              {['登録日', 'ドキュメント名', 'メモ', ''].map((h, i) => (
+                <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(doc => (
+              <tr key={doc.id} style={{ borderTop: '1px solid #f8fafc' }}>
+                <td style={{ padding: '12px 16px', fontSize: 11, color: C.muted, whiteSpace: 'nowrap' }}>
+                  {formatDate(doc.created_at?.split('T')[0])}
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 13, color: C.primary, fontWeight: 500, textDecoration: 'none' }}
+                    onMouseOver={e => e.target.style.textDecoration = 'underline'}
+                    onMouseOut={e => e.target.style.textDecoration = 'none'}>
+                    {doc.name}
+                    <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.6 }}>↗</span>
+                  </a>
+                </td>
+                <td style={{ padding: '12px 16px', fontSize: 12, color: C.secondary }}>
+                  {doc.memo || <span style={{ color: '#d1d5db' }}>—</span>}
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  <button onClick={() => handleDelete(doc)}
+                    style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>削除</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }
@@ -878,13 +1003,13 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
         {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label className="form-label">イベント概要</label>
+              <label className="form-label">概要</label>
               <textarea className="form-input" rows={4} style={{ resize: 'vertical' }}
                 value={form.overview} onChange={e => setForm(p => ({ ...p, overview: e.target.value }))}
                 placeholder="イベントの目的・内容・対象者などを記入..." />
             </div>
             <div>
-              <label className="form-label">所感</label>
+              <label className="form-label">所見</label>
               <textarea className="form-input" rows={4} style={{ resize: 'vertical' }}
                 value={form.impression} onChange={e => setForm(p => ({ ...p, impression: e.target.value }))}
                 placeholder="担当者の振り返り・気づきを記入..." />
@@ -903,13 +1028,13 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <div>
-              <span style={lbl}>イベント概要</span>
+              <span style={lbl}>概要</span>
               <p style={{ fontSize: 13, color: evReport?.overview ? C.text : C.muted, lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0 }}>
                 {evReport?.overview || '未入力'}
               </p>
             </div>
             <div>
-              <span style={lbl}>所感</span>
+              <span style={lbl}>所見</span>
               <p style={{ fontSize: 13, color: evReport?.impression ? C.text : C.muted, lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0 }}>
                 {evReport?.impression || '未入力'}
               </p>

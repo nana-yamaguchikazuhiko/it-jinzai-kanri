@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { appendRow, updateById, generateId } from '../api/sheets'
-import { CATEGORIES, SMALL_CAT_MAP } from '../constants/categories'
+import { CATEGORIES, SMALL_CAT_MAP, STANDALONE_SMALL_CATS } from '../constants/categories'
 import { getTemplateBySmallCat, calcDueDate, calcStartDate } from '../constants/taskTemplates'
 
 const EMPTY_EVENT = {
@@ -82,9 +82,9 @@ export default function EventForm() {
     setTaskDrafts(drafts)
   }, [form.small_cat, templates, isEdit])
 
-  // 開催日変更時にタスク期日・開始日を再計算
+  // 開催日変更時にタスク期日・開始日を再計算（通年は除く）
   useEffect(() => {
-    if (!form.event_date) return
+    if (!form.event_date || form.event_date === '通年') return
     setTaskDrafts(prev => prev.map(t => {
       const due = calcDueDate(form.event_date, t.days_before)
       return { ...t, due_date: due, start_date: calcStartDate(due) }
@@ -96,10 +96,13 @@ export default function EventForm() {
       const next = { ...prev, [field]: value }
       if (field === 'big_cat') { next.mid_cat = ''; next.small_cat = '' }
       if (field === 'mid_cat') { next.small_cat = '' }
-      // 小分類から大・中を自動セット
       if (field === 'small_cat' && value) {
-        const match = SMALL_CAT_MAP[value]
-        if (match) { next.big_cat = match.bigName; next.mid_cat = match.midName }
+        if (STANDALONE_SMALL_CATS.includes(value)) {
+          next.big_cat = ''; next.mid_cat = ''
+        } else {
+          const match = SMALL_CAT_MAP[value]
+          if (match) { next.big_cat = match.bigName; next.mid_cat = match.midName }
+        }
       }
       return next
     })
@@ -131,7 +134,8 @@ export default function EventForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.name || !form.big_cat || !form.mid_cat || !form.small_cat || !form.event_date) {
+    const catOk = form.small_cat && (STANDALONE_SMALL_CATS.includes(form.small_cat) || (form.big_cat && form.mid_cat))
+    if (!form.name || !catOk || !form.event_date) {
       setError('必須項目（イベント名・分類・開催日）を入力してください')
       return
     }
@@ -225,9 +229,11 @@ export default function EventForm() {
                 <select className="form-select" value={form.small_cat}
                   onChange={e => handleChange('small_cat', e.target.value)}>
                   <option value="">選択...</option>
-                  {/* 中分類選択済みなら絞り込み、未選択なら全小分類を表示 */}
                   {(form.mid_cat ? smallCats : CATEGORIES.flatMap(b => b.mid.flatMap(m => m.small)))
                     .map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  <optgroup label="─ その他 ─">
+                    {STANDALONE_SMALL_CATS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </optgroup>
                 </select>
               </div>
             </div>
@@ -241,8 +247,21 @@ export default function EventForm() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="form-label">開催日 <span className="text-red-500">*</span></label>
-                <input type="date" className="form-input" value={form.event_date}
-                  onChange={e => handleChange('event_date', e.target.value)} />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {form.event_date !== '通年' && (
+                    <input type="date" className="form-input" value={form.event_date}
+                      onChange={e => handleChange('event_date', e.target.value)} />
+                  )}
+                  {form.event_date === '通年' && (
+                    <div className="form-input" style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>通年</div>
+                  )}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                    <input type="checkbox"
+                      checked={form.event_date === '通年'}
+                      onChange={e => handleChange('event_date', e.target.checked ? '通年' : '')} />
+                    通年
+                  </label>
+                </div>
               </div>
               <div>
                 <label className="form-label">会場</label>

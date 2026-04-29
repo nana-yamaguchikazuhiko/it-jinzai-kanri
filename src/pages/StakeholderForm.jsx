@@ -18,7 +18,7 @@ const EMPTY_SH = {
   memo: '',
 }
 
-const SH_TYPES = ['会員企業', '教育機関', '行政', '求職者', 'その他']
+const SH_TYPES = ['会員企業', '委員会企業', '教育機関', '行政', '求職者', 'その他']
 const CONTACT_STATUSES = ['未連絡', '連絡中', '送付済', '回答済']
 
 export default function StakeholderForm() {
