@@ -1,4 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { updateById, appendRow, deleteById, generateId } from '../api/sheets'
@@ -59,6 +61,9 @@ export default function EventDetail() {
   const { rows: surveyResponses, reload: reloadSurveyResponses } = useSheets('survey_responses')
 
   const [activeTab, setActiveTab] = useState('tasks')
+  const [showPdfModal, setShowPdfModal] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const reportRef = useRef(null)
 
   // 申込・実績
   const [editingResult, setEditingResult] = useState(false)
@@ -137,6 +142,35 @@ export default function EventDetail() {
       setNewTaskForm({ name: '', category: '', start_date: '', due_date: '', assignee: '', status: '未着手', memo: '' })
     } catch (e) { alert('追加失敗: ' + e.message) }
     finally { setSavingTask(false) }
+  }
+
+  // ── PDF生成 ──────────────────────────────────────────
+  const handleGeneratePdf = async () => {
+    if (!reportRef.current) return
+    setGeneratingPdf(true)
+    try {
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#f0f4f8' })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const margin = 10
+      const imgW = pageW - margin * 2
+      const imgH = (canvas.height / canvas.width) * imgW
+      let y = margin
+      let remaining = imgH
+      pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH)
+      remaining -= (pageH - margin * 2)
+      while (remaining > 0) {
+        pdf.addPage()
+        y = -(imgH - remaining) - margin
+        pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH)
+        remaining -= (pageH - margin * 2)
+      }
+      pdf.save(`${event?.name || 'report'}_分析レポート.pdf`)
+      setShowPdfModal(false)
+    } catch (e) { alert('PDF生成失敗: ' + e.message) }
+    finally { setGeneratingPdf(false) }
   }
 
   // ── イベント削除 ─────────────────────────────────────
@@ -223,6 +257,12 @@ export default function EventDetail() {
           ← イベント一覧へ戻る
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
+          {activeTab === 'report' && (
+            <button onClick={() => setShowPdfModal(true)}
+              style={{ ...btnBase, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b' }}>
+              PDF出力
+            </button>
+          )}
           <button onClick={() => navigate(`/events/${id}/edit`)}
             style={{ ...btnBase, background: PRIMARY, color: '#fff', border: 'none' }}>
             編集
@@ -233,6 +273,28 @@ export default function EventDetail() {
           </button>
         </div>
       </div>
+
+      {/* PDF確認モーダル */}
+      {showPdfModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '32px 36px', maxWidth: 420, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 10 }}>PDFをダウンロード</h3>
+            <p style={{ fontSize: 13, color: TEXT_SECONDARY, lineHeight: 1.8, marginBottom: 28 }}>
+              「{event?.name}」の分析レポートをA4縦のPDFとしてダウンロードします。
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowPdfModal(false)}
+                style={{ padding: '8px 20px', borderRadius: 6, background: '#f1f5f9', color: TEXT_SECONDARY, border: 'none', cursor: 'pointer', fontSize: 13 }}>
+                キャンセル
+              </button>
+              <button onClick={handleGeneratePdf} disabled={generatingPdf}
+                style={{ padding: '8px 24px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: generatingPdf ? 0.6 : 1 }}>
+                {generatingPdf ? '生成中...' : 'ダウンロード'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Main Content ────────────────────────────── */}
       <div style={{ padding: '32px 36px' }}>
@@ -553,6 +615,7 @@ export default function EventDetail() {
               reloadSurveyResponses={reloadSurveyResponses}
               reloadSurveyColumns={reloadSurveyColumns}
               reloadFormSync={reloadFormSync}
+              containerRef={reportRef}
             />
           )}
         </div>
@@ -621,7 +684,7 @@ function GanttChart({ tasks, ganttData, today }) {
 // ─── 分析・レポートタブ ────────────────────────────────────────────────────────
 
 function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses,
-  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns, reloadFormSync }) {
+  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns, reloadFormSync, containerRef }) {
 
   const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
 
@@ -800,7 +863,7 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const lbl = { fontSize: 11, fontWeight: 600, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }
 
   return (
-    <div style={{ padding: '28px 32px' }}>
+    <div ref={containerRef} style={{ padding: '28px 32px' }}>
 
       {/* ── 基本情報 ── */}
       <div style={{ marginBottom: 32 }}>
