@@ -66,12 +66,19 @@ export default function EventList() {
     })
   }, [events, tasks])
 
-  const filtered = useMemo(() => eventsWithStatus.filter(ev => {
-    if (filterSmallCat && ev.small_cat !== filterSmallCat) return false
-    if (filterStatus && ev.status !== filterStatus) return false
-    if (searchText && !ev.name?.includes(searchText)) return false
-    return true
-  }), [eventsWithStatus, filterSmallCat, filterStatus, searchText])
+  const filtered = useMemo(() => eventsWithStatus
+    .filter(ev => {
+      if (filterSmallCat && ev.small_cat !== filterSmallCat) return false
+      if (filterStatus && ev.status !== filterStatus) return false
+      if (searchText && !ev.name?.includes(searchText)) return false
+      return true
+    })
+    .sort((a, b) => {
+      if (a.event_date === '通年' && b.event_date !== '通年') return -1
+      if (a.event_date !== '通年' && b.event_date === '通年') return 1
+      return (a.event_date || '').localeCompare(b.event_date || '')
+    })
+  , [eventsWithStatus, filterSmallCat, filterStatus, searchText])
 
   const smallCats = useMemo(() => [...new Set(events.map(e => e.small_cat).filter(Boolean))], [events])
 
