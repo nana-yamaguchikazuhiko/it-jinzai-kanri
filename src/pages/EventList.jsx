@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { EventStatusBadge } from '../components/StatusBadge'
-import { ALL_SMALL_CATS } from '../constants/categories'
+import { ALL_SMALL_CATS, MID_CAT_COLORS, MID_CAT_DEFAULT_COLOR } from '../constants/categories'
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -11,21 +11,7 @@ function formatDate(dateStr) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
-const STATUS_BORDER = {
-  '要対応': 'border-l-4 border-l-red-400',
-  '注意':   'border-l-4 border-l-yellow-400',
-  '順調':   'border-l-4 border-l-green-400',
-  '計画中': 'border-l-4 border-l-blue-400',
-  '完了':   'border-l-4 border-l-gray-300',
-}
-
-const STATUS_BAR_COLOR = {
-  '要対応': '#fca5a5',
-  '注意':   '#fcd34d',
-  '順調':   '#86efac',
-  '計画中': '#93c5fd',
-  '完了':   '#d1d5db',
-}
+const midColor = (midCat) => MID_CAT_COLORS[midCat] || MID_CAT_DEFAULT_COLOR
 
 export default function EventList() {
   const navigate = useNavigate()
@@ -162,7 +148,7 @@ export default function EventList() {
             const evTasks = tasks.filter(t => t.event_id === ev.id)
             const completedTasks = evTasks.filter(t => t.status === '完了').length
             const progress = evTasks.length > 0 ? Math.round((completedTasks / evTasks.length) * 100) : 0
-            const borderCls = STATUS_BORDER[ev.status] || 'border-l-4 border-l-gray-200'
+            const borderCls = midColor(ev.mid_cat).border
             return (
               <div key={ev.id}
                 className={`bg-white rounded-lg shadow-sm border border-gray-100 ${borderCls} cursor-pointer hover:shadow-md transition-shadow`}
@@ -322,16 +308,19 @@ function AnnualGantt({ events, tasks, onEventClick }) {
                   )}
 
                   {/* 通年バー */}
-                  {isNennen && (
-                    <div style={{
-                      position: 'absolute', top: 5, left: 3, right: 3, height: 22,
-                      background: 'linear-gradient(90deg, #06b6d4 0%, #0891b2 100%)',
-                      borderRadius: 5, zIndex: 2,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <span style={{ fontSize: 10, color: '#fff', fontWeight: 700, letterSpacing: 1 }}>通年</span>
-                    </div>
-                  )}
+                  {isNennen && (() => {
+                    const c = midColor(ev.mid_cat)
+                    return (
+                      <div style={{
+                        position: 'absolute', top: 5, left: 3, right: 3, height: 22,
+                        background: c.bar,
+                        borderRadius: 5, zIndex: 2,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: 10, color: '#fff', fontWeight: 700, letterSpacing: 1 }}>通年</span>
+                      </div>
+                    )
+                  })()}
 
                   {/* 開催日マーカー */}
                   {!isNennen && eventPos !== null && (
@@ -340,7 +329,7 @@ function AnnualGantt({ events, tasks, onEventClick }) {
                         position: 'absolute', top: '50%', left: `${eventPos}%`,
                         transform: 'translate(-50%, -50%)',
                         width: 14, height: 14, borderRadius: '50%',
-                        background: STATUS_BAR_COLOR[ev.status] || '#06b6d4',
+                        background: midColor(ev.mid_cat).dot,
                         border: '2px solid #fff',
                         boxShadow: '0 0 0 1.5px #94a3b8',
                         zIndex: 3,
@@ -354,12 +343,12 @@ function AnnualGantt({ events, tasks, onEventClick }) {
 
         {/* 凡例 */}
         <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap', fontSize: 11, color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 24, height: 10, borderRadius: 3, background: 'linear-gradient(90deg, #06b6d4, #0891b2)' }} />通年イベント
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: '#06b6d4', border: '2px solid #fff', boxShadow: '0 0 0 1.5px #94a3b8' }} />開催日
-          </span>
+          {Object.entries(MID_CAT_COLORS).map(([mid, c]) => (
+            <span key={mid} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: c.dot, border: '2px solid #fff', boxShadow: '0 0 0 1.5px #94a3b8' }} />
+              {mid}
+            </span>
+          ))}
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ display: 'inline-block', width: 2, height: 12, background: '#f87171' }} />今日
           </span>

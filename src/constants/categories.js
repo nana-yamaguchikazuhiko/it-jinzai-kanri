@@ -84,3 +84,13 @@ export const ALL_SMALL_CATS = CATEGORIES.flatMap(big =>
 export const SMALL_CAT_MAP = Object.fromEntries(
   ALL_SMALL_CATS.map(s => [s.name, { bigName: s.bigName, midName: s.midName }])
 )
+
+// 中分類ごとの差し色（カード左ボーダー・ガントドット共用）
+export const MID_CAT_COLORS = {
+  '大学生対象':     { border: 'border-l-4 border-l-violet-400', dot: '#a78bfa', bar: '#a78bfa' },
+  '採用支援':       { border: 'border-l-4 border-l-sky-400',    dot: '#38bdf8', bar: '#38bdf8' },
+  '産学連携懇話会': { border: 'border-l-4 border-l-emerald-400', dot: '#34d399', bar: '#34d399' },
+  '人材紹介':       { border: 'border-l-4 border-l-amber-400',  dot: '#fbbf24', bar: '#fbbf24' },
+  'UIJターン':      { border: 'border-l-4 border-l-rose-400',   dot: '#fb7185', bar: '#fb7185' },
+}
+export const MID_CAT_DEFAULT_COLOR = { border: 'border-l-4 border-l-gray-300', dot: '#d1d5db', bar: '#d1d5db' }
