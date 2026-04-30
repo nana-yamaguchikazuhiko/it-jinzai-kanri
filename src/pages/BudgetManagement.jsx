@@ -33,14 +33,19 @@ export default function BudgetManagement() {
   const { rows: evBudgets,   loading: lb } = useSheets('event_budgets')
   const { rows: catBudgets,  loading: lc, reload: reloadCatBudgets } = useSheets('category_budgets')
 
-  // 小分類の一覧（大分類順 → STANDALONE順、イベントが存在するもののみ）
+  // 小分類の一覧（大分類順 → STANDALONE順 → eventsにのみ存在する名前）
   const smallCats = useMemo(() => {
     const hasEvent = new Set(events.map(e => e.small_cat).filter(Boolean))
     const ordered = [
       ...CATEGORIES.flatMap(big => big.mid.flatMap(mid => mid.small.map(s => s.name))),
       ...STANDALONE_SMALL_CATS,
     ]
-    return ordered.filter(name => hasEvent.has(name))
+    // CATEGORIESの順序でeventsに存在するもの
+    const catMatched = ordered.filter(name => hasEvent.has(name))
+    const catMatchedSet = new Set(catMatched)
+    // eventsにはあるがCATEGORIESに載っていない名前（旧名称など）を末尾に追加
+    const extras = [...hasEvent].filter(name => !catMatchedSet.has(name))
+    return [...catMatched, ...extras]
   }, [events])
 
   const [activeTab, setActiveTab] = useState('_summary')
