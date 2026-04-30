@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useSheets } from '../hooks/useSheets'
 import { appendRow, generateId } from '../api/sheets'
 
@@ -100,8 +102,14 @@ export default function FieldNote() {
     <div className="p-6">
 
       {/* ヘッダー */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: TEXT_PRIMARY }}>フィールドノート</h1>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 4 }}>フィールドノート</h1>
+          <p style={{ fontSize: 13, color: TEXT_SECONDARY, lineHeight: 1.6 }}>
+            採用・就職に関する情報を得たときは、こちらのノートに集約していきましょう！<br />
+            大学・企業・行政などあらゆる現場からの声を記録・蓄積することで、事業の分析や戦略立案に活かせます。
+          </p>
+        </div>
         <button onClick={() => setShowForm(v => !v)}
           style={{ background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
           <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>新規記録
@@ -161,12 +169,15 @@ export default function FieldNote() {
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>本文</label>
+            <label style={{ display: 'block', fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>
+              本文
+              <span style={{ marginLeft: 8, fontSize: 10, color: '#06b6d4', fontWeight: 500 }}>Markdown 対応</span>
+            </label>
             <textarea value={form.content}
               onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
-              rows={5}
-              placeholder="収集した情報を詳しく記録してください..."
-              style={{ ...inp(), resize: 'vertical' }} />
+              rows={6}
+              placeholder={'収集した情報を詳しく記録してください...\n\n# 見出し\n## 小見出し\n- 箇条書き\n| 列1 | 列2 |'}
+              style={{ ...inp(), resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }} />
           </div>
 
           <div style={{ marginBottom: 20 }}>
@@ -301,24 +312,24 @@ export default function FieldNote() {
                     </div>
                   )}
 
-                  {/* 本文プレビュー（折りたたみ時） */}
+                  {/* 本文プレビュー（折りたたみ時・先頭2行） */}
                   {!isOpen && n.content && (
                     <p style={{
                       fontSize: 12, color: TEXT_SECONDARY, marginTop: 8, lineHeight: 1.6,
                       display: '-webkit-box', WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical', overflow: 'hidden',
                     }}>
-                      {n.content}
+                      {n.content.replace(/^#+\s/gm, '').replace(/[*_`|]/g, '')}
                     </p>
                   )}
                 </div>
 
-                {/* 本文展開 */}
+                {/* 本文展開（Markdownレンダリング） */}
                 {isOpen && n.content && (
                   <div style={{ padding: '12px 18px 16px', borderTop: `1px solid ${BORDER}` }}>
-                    <p style={{ fontSize: 13, color: TEXT_PRIMARY, lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
-                      {n.content}
-                    </p>
+                    <div className="markdown-body">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{n.content}</ReactMarkdown>
+                    </div>
                   </div>
                 )}
               </div>

@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { path: '/stakeholders', label: 'ステークホルダー',  icon: '◎' },
   { path: '/goals',        label: '目標・実績管理',    icon: '◉' },
   { path: '/templates',    label: 'タスクテンプレート', icon: '▤' },
-  { path: '/mails',        label: '問い合わせ管理',     icon: '✉' },
+  { path: '/mails',        label: '問い合わせ管理（実装中）', icon: '✉' },
   { path: '/snippets',    label: 'スニペット',         icon: '〈〉' },
   { path: '/fieldnotes', label: 'フィールドノート',   icon: '✎' },
 ]

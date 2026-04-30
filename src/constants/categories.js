@@ -40,7 +40,7 @@ export const CATEGORIES = [
         id: 'mid_3_1',
         name: '産学連携懇話会',
         small: [
-          { id: 'small_3_1_1', name: '大学等産学実践教育 連携会議' },
+          { id: 'small_3_1_1', name: '大学等産学IT就職促進 連携会議' },
           { id: 'small_3_1_2', name: '専門学校等 連携会議' },
           { id: 'small_3_1_3', name: '産学連携 情報交換会' },
           { id: 'small_3_1_4', name: '教育機関との日常的な連携・コーディネーション活動' },
