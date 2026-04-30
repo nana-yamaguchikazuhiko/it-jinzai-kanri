@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { appendRow, updateById, generateId } from '../api/sheets'
+import { CATEGORIES, STANDALONE_SMALL_CATS } from '../constants/categories'
 
 const PRIMARY = '#06b6d4'
 const TEXT_PRIMARY = '#1e2d3d'
@@ -32,13 +33,14 @@ export default function BudgetManagement() {
   const { rows: evBudgets,   loading: lb } = useSheets('event_budgets')
   const { rows: catBudgets,  loading: lc, reload: reloadCatBudgets } = useSheets('category_budgets')
 
-  // 小分類の一覧（イベント登録順）
+  // 小分類の一覧（大分類順 → STANDALONE順、イベントが存在するもののみ）
   const smallCats = useMemo(() => {
-    const order = []; const seen = new Set()
-    for (const ev of events) {
-      if (ev.small_cat && !seen.has(ev.small_cat)) { seen.add(ev.small_cat); order.push(ev.small_cat) }
-    }
-    return order
+    const hasEvent = new Set(events.map(e => e.small_cat).filter(Boolean))
+    const ordered = [
+      ...CATEGORIES.flatMap(big => big.mid.flatMap(mid => mid.small.map(s => s.name))),
+      ...STANDALONE_SMALL_CATS,
+    ]
+    return ordered.filter(name => hasEvent.has(name))
   }, [events])
 
   const [activeTab, setActiveTab] = useState('_summary')

@@ -71,7 +71,7 @@ export const CATEGORIES = [
 ]
 
 // 大・中分類に属さない独立小分類
-export const STANDALONE_SMALL_CATS = ['確保G事業外活動・外部団体活動']
+export const STANDALONE_SMALL_CATS = ['確保G事業外活動・外部団体活動', '定例会議']
 
 // 小分類名の一覧（フラット）
 export const ALL_SMALL_CATS = CATEGORIES.flatMap(big =>
