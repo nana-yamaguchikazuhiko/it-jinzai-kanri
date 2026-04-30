@@ -111,7 +111,7 @@ export default function BudgetManagement() {
       ) : (
         <>
           {/* タブ */}
-          <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, marginBottom: 24, overflowX: 'auto' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: `1px solid ${BORDER}`, marginBottom: 24, rowGap: 0 }}>
             {/* 全体収支タブ */}
             <button onClick={() => { setActiveTab('_summary'); setEditingCatBudget(false) }}
               style={{
@@ -130,7 +130,7 @@ export default function BudgetManagement() {
             {smallCats.map(cat => (
               <button key={cat} onClick={() => { setActiveTab(cat); setEditingCatBudget(false) }}
                 style={{
-                  padding: '10px 18px', fontSize: 12, whiteSpace: 'nowrap', fontFamily: 'inherit',
+                  padding: '10px 14px', fontSize: 12, whiteSpace: 'nowrap', fontFamily: 'inherit',
                   fontWeight: activeTab === cat ? 700 : 400,
                   color: activeTab === cat ? PRIMARY : TEXT_MUTED,
                   background: 'none', border: 'none',
