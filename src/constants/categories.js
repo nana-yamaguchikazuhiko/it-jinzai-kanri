@@ -26,7 +26,7 @@ export const CATEGORIES = [
         small: [
           { id: 'small_2_1_1', name: '新卒者対象企業説明会' },
           { id: 'small_2_1_2', name: '企業情報の提供' },
-          { id: 'small_2_1_3', name: '学生支援窓口の運営' },
+          { id: 'small_2_1_3', name: 'Webサイトの改変' },
           { id: 'small_2_1_4', name: '採用促進型インターンシップ・イベント' },
         ],
       },
