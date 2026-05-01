@@ -52,19 +52,36 @@ export default function EventList() {
     })
   }, [events, tasks])
 
-  const filtered = useMemo(() => eventsWithStatus
-    .filter(ev => {
+  const childMap = useMemo(() => {
+    const map = {}
+    eventsWithStatus.forEach(ev => {
+      if (ev.parent_id) {
+        if (!map[ev.parent_id]) map[ev.parent_id] = []
+        map[ev.parent_id].push(ev)
+      }
+    })
+    return map
+  }, [eventsWithStatus])
+
+  const filtered = useMemo(() => {
+    const matchEv = ev => {
       if (filterSmallCat && ev.small_cat !== filterSmallCat) return false
       if (filterStatus && ev.status !== filterStatus) return false
       if (searchText && !ev.name?.includes(searchText)) return false
       return true
-    })
-    .sort((a, b) => {
-      if (a.event_date === '通年' && b.event_date !== '通年') return -1
-      if (a.event_date !== '通年' && b.event_date === '通年') return 1
-      return (a.event_date || '').localeCompare(b.event_date || '')
-    })
-  , [eventsWithStatus, filterSmallCat, filterStatus, searchText])
+    }
+    return eventsWithStatus
+      .filter(ev => {
+        if (ev.parent_id) return false
+        const children = childMap[ev.id] || []
+        return matchEv(ev) || children.some(matchEv)
+      })
+      .sort((a, b) => {
+        if (a.event_date === '通年' && b.event_date !== '通年') return -1
+        if (a.event_date !== '通年' && b.event_date === '通年') return 1
+        return (a.event_date || '').localeCompare(b.event_date || '')
+      })
+  }, [eventsWithStatus, childMap, filterSmallCat, filterStatus, searchText])
 
   const smallCats = useMemo(() => [...new Set(events.map(e => e.small_cat).filter(Boolean))], [events])
 
@@ -145,17 +162,24 @@ export default function EventList() {
         /* ── カード表示 ── */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(ev => {
-            const evTasks = tasks.filter(t => t.event_id === ev.id)
-            const completedTasks = evTasks.filter(t => t.status === '完了').length
-            const progress = evTasks.length > 0 ? Math.round((completedTasks / evTasks.length) * 100) : 0
+            const children = (childMap[ev.id] || []).sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''))
+            const isParentEv = children.length > 0
+            const allIds = isParentEv ? [ev.id, ...children.map(c => c.id)] : [ev.id]
+            const allEvTasks = tasks.filter(t => allIds.includes(t.event_id))
+            const completedTasks = allEvTasks.filter(t => t.status === '完了').length
+            const progress = allEvTasks.length > 0 ? Math.round((completedTasks / allEvTasks.length) * 100) : 0
             const borderCls = midColor(ev.mid_cat).border
             return (
               <div key={ev.id}
-                className={`bg-white rounded-lg shadow-sm border border-gray-100 ${borderCls} cursor-pointer hover:shadow-md transition-shadow`}
-                onClick={() => navigate(`/events/${ev.id}`)}>
-                <div className="p-4">
+                className={`bg-white rounded-lg shadow-sm border border-gray-100 ${borderCls} overflow-hidden hover:shadow-md transition-shadow`}>
+                <div className="p-4 cursor-pointer" onClick={() => navigate(`/events/${ev.id}`)}>
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-gray-800 text-sm leading-snug line-clamp-2">{ev.name}</h3>
+                    <div className="flex-1 min-w-0">
+                      {isParentEv && (
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: '#e0f7fa', color: '#0891b2', fontWeight: 700, marginRight: 5, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>親</span>
+                      )}
+                      <h3 className="font-semibold text-gray-800 text-sm leading-snug" style={{ display: 'inline' }}>{ev.name}</h3>
+                    </div>
                     <EventStatusBadge status={ev.status} />
                   </div>
                   <div className="text-xs text-gray-400 space-y-0.5 mb-3">
@@ -163,11 +187,11 @@ export default function EventList() {
                     <div>開催日: <span className="text-gray-600">{formatDate(ev.event_date)}</span></div>
                     {ev.venue && <div>会場: {ev.venue}</div>}
                   </div>
-                  {evTasks.length > 0 && (
+                  {allEvTasks.length > 0 && (
                     <div>
                       <div className="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>タスク進捗</span>
-                        <span>{completedTasks}/{evTasks.length} ({progress}%)</span>
+                        <span>タスク進捗{isParentEv ? '（全体）' : ''}</span>
+                        <span>{completedTasks}/{allEvTasks.length} ({progress}%)</span>
                       </div>
                       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${progress}%`, background: '#06b6d4' }} />
@@ -175,19 +199,34 @@ export default function EventList() {
                     </div>
                   )}
                 </div>
+                {isParentEv && (
+                  <div style={{ borderTop: '1px solid #f1f5f9', background: '#fafbfc' }}>
+                    {children.map((child, ci) => (
+                      <div key={child.id}
+                        style={{ padding: '7px 14px 7px 18px', display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', borderBottom: ci < children.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+                        className="hover:bg-gray-100 transition-colors"
+                        onClick={e => { e.stopPropagation(); navigate(`/events/${child.id}`) }}>
+                        <span style={{ color: '#d1d5db', fontSize: 11, flexShrink: 0 }}>└</span>
+                        <span style={{ fontSize: 12, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{child.name}</span>
+                        <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(child.event_date)}</span>
+                        <EventStatusBadge status={child.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
       ) : (
         /* ── 年間スケジュール（ガント）表示 ── */
-        <AnnualGantt events={filtered} tasks={tasks} onEventClick={id => navigate(`/events/${id}`)} />
+        <AnnualGantt events={filtered} tasks={tasks} childMap={childMap} onEventClick={id => navigate(`/events/${id}`)} />
       )}
     </div>
   )
 }
 
-function AnnualGantt({ events, tasks, onEventClick }) {
+function AnnualGantt({ events, tasks, childMap = {}, onEventClick }) {
   const today = new Date()
 
   // 現在の年度（4月始まり）
@@ -227,14 +266,22 @@ function AnnualGantt({ events, tasks, onEventClick }) {
     return null
   })()
 
-  const eventData = useMemo(() => events
-    .map(ev => ({ ...ev, taskCount: tasks.filter(t => t.event_id === ev.id).length }))
-    .sort((a, b) => {
+  const eventData = useMemo(() => {
+    const sorted = [...events].sort((a, b) => {
       if (a.event_date === '通年' && b.event_date !== '通年') return -1
       if (a.event_date !== '通年' && b.event_date === '通年') return 1
       return (a.event_date || '').localeCompare(b.event_date || '')
     })
-  , [events, tasks])
+    const result = []
+    sorted.forEach(ev => {
+      const children = (childMap[ev.id] || []).sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''))
+      result.push({ ...ev, taskCount: tasks.filter(t => t.event_id === ev.id).length, isParentRow: children.length > 0, indented: false })
+      children.forEach(child => {
+        result.push({ ...child, taskCount: tasks.filter(t => t.event_id === child.id).length, isParentRow: false, indented: true })
+      })
+    })
+    return result
+  }, [events, tasks, childMap])
 
   const NAME_W = 210
 
@@ -280,15 +327,16 @@ function AnnualGantt({ events, tasks, onEventClick }) {
 
             return (
               <div key={ev.id}
-                style={{ display: 'flex', alignItems: 'center', marginBottom: 5, cursor: 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', marginBottom: ev.indented ? 3 : 5, cursor: 'pointer' }}
                 onClick={() => onEventClick(ev.id)}>
 
                 {/* イベント名 */}
-                <div style={{ width: NAME_W, flexShrink: 0, paddingRight: 12 }}>
-                  <div style={{ fontSize: 12, color: '#1e2d3d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }} title={ev.name}>
+                <div style={{ width: NAME_W, flexShrink: 0, paddingRight: 12, paddingLeft: ev.indented ? 16 : 0 }}>
+                  <div style={{ fontSize: ev.indented ? 11 : 12, color: ev.indented ? '#64748b' : '#1e2d3d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4, fontWeight: ev.isParentRow ? 700 : 400 }} title={ev.name}>
+                    {ev.indented && <span style={{ color: '#d1d5db', marginRight: 4 }}>└</span>}
                     {ev.name}
                   </div>
-                  {ev.small_cat && (
+                  {ev.small_cat && !ev.indented && (
                     <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#e0f7fa', color: '#0891b2', fontWeight: 500, whiteSpace: 'nowrap' }}>
                       {ev.small_cat}
                     </span>
@@ -296,7 +344,7 @@ function AnnualGantt({ events, tasks, onEventClick }) {
                 </div>
 
                 {/* チャートエリア（12等分） */}
-                <div style={{ flex: 1, position: 'relative', height: 32, background: rowIdx % 2 === 0 ? '#f8fafc' : '#fff', border: '1px solid #e8edf2', borderRadius: 4 }}>
+                <div style={{ flex: 1, position: 'relative', height: ev.indented ? 26 : 32, background: ev.isParentRow ? '#f0f9ff' : (rowIdx % 2 === 0 ? '#f8fafc' : '#fff'), border: '1px solid #e8edf2', borderRadius: 4 }}>
                   {/* 月区切り線 */}
                   {[1,2,3,4,5,6,7,8,9,10,11].map(i => (
                     <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: `${i/12*100}%`, width: 1, background: '#e8edf2' }} />

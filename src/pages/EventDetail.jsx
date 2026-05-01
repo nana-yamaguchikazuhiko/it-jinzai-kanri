@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import ReactMarkdown from 'react-markdown'
@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { updateById, appendRow, deleteById, generateId } from '../api/sheets'
-import { ContactStatusBadge } from '../components/StatusBadge'
+import { ContactStatusBadge, EventStatusBadge } from '../components/StatusBadge'
 
 const PRIMARY = '#06b6d4'
 const PRIMARY_DARK = '#0891b2'
@@ -109,13 +109,35 @@ export default function EventDetail() {
   const [savingSH, setSavingSH] = useState(false)
 
   const event = events.find(e => e.id === id)
-  const evTasks = tasks.filter(t => t.event_id === id)
-  const evSHIds = eventSH.filter(r => r.event_id === id).map(r => r.stakeholder_id)
+  const childEvents = events.filter(e => e.parent_id === id)
+  const isParent = childEvents.length > 0
+  const isChild = !!(event?.parent_id)
+  const parentEvent = isChild ? events.find(e => e.id === event?.parent_id) : null
+  const allEventIds = isParent ? [id, ...childEvents.map(e => e.id)] : [id]
+  const eventNameMap = Object.fromEntries(events.map(e => [e.id, e.name]))
+
+  useEffect(() => { if (isParent) setActiveTab('children') }, [isParent])
+
+  const evTasks = tasks.filter(t => allEventIds.includes(t.event_id))
+  const evSHIds = eventSH.filter(r => allEventIds.includes(r.event_id)).map(r => r.stakeholder_id)
   const evStakeholders = stakeholders.filter(s => evSHIds.includes(s.id))
   const evResult = results.find(r => r.event_id === id)
   const evReport = eventReports.find(r => r.event_id === id)
   const today = new Date().toISOString().split('T')[0]
   const unlinkedSH = stakeholders.filter(s => !evSHIds.includes(s.id))
+
+  // Aggregated results across all child events (for parent view)
+  const aggregatedResult = useMemo(() => {
+    if (!isParent) return null
+    const allRes = results.filter(r => allEventIds.includes(r.event_id))
+    return {
+      student_applied: allRes.reduce((s, r) => s + (Number(r.student_applied) || 0), 0),
+      company_applied: allRes.reduce((s, r) => s + (Number(r.company_applied) || 0), 0),
+      student_actual: allRes.reduce((s, r) => s + (Number(r.student_actual) || 0), 0),
+      company_actual: allRes.reduce((s, r) => s + (Number(r.company_actual) || 0), 0),
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isParent, results, id, childEvents])
 
   // フォーム連携: form_syncシートから自動カウント
   const formStudentCount = formSync.filter(r => r.event_id === id && r.type === 'student').length
@@ -278,10 +300,21 @@ export default function EventDetail() {
 
       {/* ── Top Bar ─────────────────────────────────── */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 36px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button onClick={() => navigate('/events')}
-          style={{ fontSize: 13, color: PRIMARY, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
-          ← イベント一覧へ戻る
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => navigate('/events')}
+            style={{ fontSize: 13, color: PRIMARY, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
+            ← イベント一覧へ戻る
+          </button>
+          {isChild && parentEvent && (
+            <>
+              <span style={{ color: '#d1d5db', fontSize: 14 }}>/</span>
+              <button onClick={() => navigate(`/events/${parentEvent.id}`)}
+                style={{ fontSize: 12, color: '#0891b2', background: '#e0f7fa', border: '1px solid #b2ebf2', borderRadius: 5, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                親: {parentEvent.name}
+              </button>
+            </>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {activeTab === 'report' && (
             <button onClick={() => setShowPdfModal(true)}
@@ -334,9 +367,21 @@ export default function EventDetail() {
               </span>
             ))}
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: TEXT_PRIMARY, letterSpacing: '-0.02em', lineHeight: 1.4 }}>
-            {event.name}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: TEXT_PRIMARY, letterSpacing: '-0.02em', lineHeight: 1.4 }}>
+              {event.name}
+            </h1>
+            {isParent && (
+              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: '#e0f7fa', color: '#0891b2', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                親イベント ({childEvents.length}件)
+              </span>
+            )}
+            {isChild && (
+              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: '#f1f5f9', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                小イベント
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 統計カード 4列 */}
@@ -371,17 +416,19 @@ export default function EventDetail() {
           {/* 申込・参加実績 */}
           <div style={{ ...CARD_STYLE, padding: '22px 26px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>申込・参加実績</div>
-              <button
-                style={{ fontSize: 12, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
-                onClick={() => {
-                  setResultForm(evResult
-                    ? { student_applied: evResult.student_applied, company_applied: evResult.company_applied, student_actual: evResult.student_actual, company_actual: evResult.company_actual }
-                    : resultForm)
-                  setEditingResult(!editingResult)
-                }}>
-                {editingResult ? 'キャンセル' : '編集'}
-              </button>
+              <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>申込・参加実績{isParent ? '（全小イベント合計）' : ''}</div>
+              {!isParent && (
+                <button
+                  style={{ fontSize: 12, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                  onClick={() => {
+                    setResultForm(evResult
+                      ? { student_applied: evResult.student_applied, company_applied: evResult.company_applied, student_actual: evResult.student_actual, company_actual: evResult.company_actual }
+                      : resultForm)
+                    setEditingResult(!editingResult)
+                  }}>
+                  {editingResult ? 'キャンセル' : '編集'}
+                </button>
+              )}
             </div>
             {/* フォーム自動カウント */}
             {(formStudentCount > 0 || formCompanyCount > 0) && (
@@ -413,12 +460,17 @@ export default function EventDetail() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-                {[
+                {(isParent ? [
+                  ['学生申込（合計）', aggregatedResult?.student_applied, false],
+                  ['企業申込（合計）', aggregatedResult?.company_applied, false],
+                  ['学生参加実数（合計）', aggregatedResult?.student_actual, false],
+                  ['企業参加実数（合計）', aggregatedResult?.company_actual, false],
+                ] : [
                   ['学生申込', formStudentCount > 0 ? formStudentCount : evResult?.student_applied, formStudentCount > 0],
                   ['企業申込', formCompanyCount > 0 ? formCompanyCount : evResult?.company_applied, formCompanyCount > 0],
                   ['学生参加実数', evResult?.student_actual, false],
                   ['企業参加実数', evResult?.company_actual, false],
-                ].map(([label, value, isAuto]) => (
+                ]).map(([label, value, isAuto]) => (
                   <div key={label} style={{ textAlign: 'center', padding: '12px 0', background: '#f8fafc', borderRadius: 10, position: 'relative' }}>
                     <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 6 }}>{label}</div>
                     <div style={{ fontSize: 26, fontWeight: 800, color: TEXT_PRIMARY }}>{value || '—'}</div>
@@ -446,6 +498,7 @@ export default function EventDetail() {
           {/* タブバー */}
           <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9', padding: '0 24px' }}>
             {[
+              ...(isParent ? [{ key: 'children', label: `小イベント (${childEvents.length})` }] : []),
               { key: 'tasks',        label: `タスク (${evTasks.length})` },
               { key: 'gantt',        label: 'ガントチャート' },
               { key: 'stakeholders', label: `ステークホルダー (${evStakeholders.length})` },
@@ -466,7 +519,7 @@ export default function EventDetail() {
               </button>
             ))}
             <div style={{ marginLeft: 'auto' }}>
-              {activeTab === 'tasks' && (
+              {activeTab === 'tasks' && !isParent && (
                 <button
                   style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                   onClick={() => { setAddingTask(true); setEditingTaskId(null) }}>
@@ -483,12 +536,60 @@ export default function EventDetail() {
             </div>
           </div>
 
+          {/* ── 小イベントタブ ────────────────────── */}
+          {activeTab === 'children' && (
+            <div style={{ padding: '24px 28px' }}>
+              <p style={{ fontSize: 13, color: TEXT_MUTED, marginBottom: 16, lineHeight: 1.8 }}>
+                タスクの追加・編集は各小イベントのページで行ってください。
+              </p>
+              {childEvents.sort((a, b) => (a.event_date || '').localeCompare(b.event_date || '')).map(child => {
+                const childTasks = tasks.filter(t => t.event_id === child.id)
+                const done = childTasks.filter(t => t.status === '完了').length
+                const pct = childTasks.length > 0 ? Math.round((done / childTasks.length) * 100) : 0
+                return (
+                  <div key={child.id}
+                    style={{ padding: '16px 20px', borderRadius: 10, border: `1px solid ${BORDER}`, marginBottom: 10, cursor: 'pointer', background: '#fafbfc', display: 'flex', alignItems: 'center', gap: 16, transition: 'background 0.15s' }}
+                    onClick={() => navigate(`/events/${child.id}`)}
+                    onMouseOver={e => e.currentTarget.style.background = '#f0f9ff'}
+                    onMouseOut={e => e.currentTarget.style.background = '#fafbfc'}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_PRIMARY }}>{child.name}</span>
+                        <EventStatusBadge status={child.status} />
+                      </div>
+                      <div style={{ fontSize: 12, color: TEXT_MUTED }}>
+                        開催日: {formatDate(child.event_date)}{child.venue ? ` / ${child.venue}` : ''}
+                      </div>
+                      {childTasks.length > 0 && (
+                        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, height: 6, background: '#e8edf2', borderRadius: 99, overflow: 'hidden', maxWidth: 200 }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: PRIMARY, borderRadius: 99 }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: TEXT_MUTED }}>{done}/{childTasks.length} ({pct}%)</span>
+                        </div>
+                      )}
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           {/* ── タスクタブ ─────────────────────────── */}
           {activeTab === 'tasks' && (
+            <>
+            {isParent && (
+              <div style={{ margin: '0 24px', marginTop: 16, padding: '10px 16px', background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd', fontSize: 12, color: '#0369a1' }}>
+                全小イベントのタスクを集約表示しています。タスクの追加・編集は各小イベントのページで行ってください。
+              </div>
+            )}
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#fafbfc' }}>
-                  {['タスク名', 'カテゴリ', '開始日', '期日', 'ステータス', ''].map((h, i) => (
+                  {[...(isParent ? ['イベント'] : []), 'タスク名', 'カテゴリ', '開始日', '期日', 'ステータス', ''].map((h, i) => (
                     <th key={i} style={thStyle}>{h}</th>
                   ))}
                 </tr>
@@ -518,7 +619,7 @@ export default function EventDetail() {
                 )}
 
                 {evTasks.length === 0 && !addingTask ? (
-                  <tr><td colSpan={6} style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>タスクがありません</td></tr>
+                  <tr><td colSpan={isParent ? 7 : 6} style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>タスクがありません</td></tr>
                 ) : (
                   sortedTasks.map(t => {
                     const isOverdue = t.status !== '完了' && t.due_date && t.due_date < today
@@ -547,6 +648,7 @@ export default function EventDetail() {
                           </>
                         ) : (
                           <>
+                            {isParent && <td style={{ padding: '13px 14px', fontSize: 11, color: TEXT_MUTED, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={eventNameMap[t.event_id]}>{eventNameMap[t.event_id] || '—'}</td>}
                             <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{t.name}</td>
                             <td style={{ padding: '13px 20px' }}><CatBadge cat={t.category} /></td>
                             <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{formatDate(t.start_date)}</td>
@@ -560,12 +662,14 @@ export default function EventDetail() {
                               </select>
                             </td>
                             <td style={{ padding: '13px 20px' }}>
-                              <div style={{ display: 'flex', gap: 12 }}>
-                                <button style={{ fontSize: 11, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
-                                  onClick={() => { startEditTask(t); setAddingTask(false) }}>編集</button>
-                                <button style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                                  onClick={() => handleDeleteTask(t)}>削除</button>
-                              </div>
+                              {!isParent && (
+                                <div style={{ display: 'flex', gap: 12 }}>
+                                  <button style={{ fontSize: 11, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                                    onClick={() => { startEditTask(t); setAddingTask(false) }}>編集</button>
+                                  <button style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                    onClick={() => handleDeleteTask(t)}>削除</button>
+                                </div>
+                              )}
                             </td>
                           </>
                         )}
@@ -575,6 +679,7 @@ export default function EventDetail() {
                 )}
               </tbody>
             </table>
+            </>
           )}
 
           {/* ── ガントチャートタブ ─────────────────── */}
@@ -644,8 +749,10 @@ export default function EventDetail() {
           {activeTab === 'budget' && (
             <BudgetTab
               eventId={id}
-              budgets={eventBudgets.filter(b => b.event_id === id)}
+              budgets={eventBudgets.filter(b => allEventIds.includes(b.event_id))}
               reload={reloadBudgets}
+              readOnly={isParent}
+              eventNameMap={isParent ? eventNameMap : null}
             />
           )}
           {/* ── ドキュメントタブ ──────────────────── */}
@@ -737,7 +844,7 @@ function GanttChart({ tasks, ganttData, today }) {
 
 // ─── 収支タブ ─────────────────────────────────────────────────────────────────
 
-function BudgetTab({ eventId, budgets, reload }) {
+function BudgetTab({ eventId, budgets, reload, readOnly = false, eventNameMap = null }) {
   const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
   const th = { padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.07em', textTransform: 'uppercase' }
 
@@ -779,25 +886,32 @@ function BudgetTab({ eventId, budgets, reload }) {
 
   return (
     <div style={{ padding: '24px 28px' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        {editing ? (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleSave} disabled={saving}
+      {readOnly && (
+        <div style={{ marginBottom: 14, padding: '8px 14px', background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd', fontSize: 12, color: '#0369a1' }}>
+          全小イベントの収支を集約表示しています。編集は各小イベントのページで行ってください。
+        </div>
+      )}
+      {!readOnly && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          {editing ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleSave} disabled={saving}
+                style={{ padding: '7px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {saving ? '保存中...' : '保存'}
+              </button>
+              <button onClick={() => setEditing(false)}
+                style={{ padding: '7px 14px', background: '#f1f5f9', color: C.secondary, border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
+                キャンセル
+              </button>
+            </div>
+          ) : (
+            <button onClick={startEdit}
               style={{ padding: '7px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {saving ? '保存中...' : '保存'}
+              編集
             </button>
-            <button onClick={() => setEditing(false)}
-              style={{ padding: '7px 14px', background: '#f1f5f9', color: C.secondary, border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
-              キャンセル
-            </button>
-          </div>
-        ) : (
-          <button onClick={startEdit}
-            style={{ padding: '7px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            編集
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {editing ? (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -852,6 +966,7 @@ function BudgetTab({ eventId, budgets, reload }) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#fafbfc' }}>
+              {eventNameMap && <th style={th}>イベント</th>}
               <th style={th}>項目</th>
               <th style={th}>収入 / 支出</th>
               <th style={{ ...th, textAlign: 'right' }}>金額（円）</th>
@@ -860,6 +975,7 @@ function BudgetTab({ eventId, budgets, reload }) {
           <tbody>
             {budgets.map(b => (
               <tr key={b.id} style={{ borderTop: '1px solid #f8fafc' }}>
+                {eventNameMap && <td style={{ padding: '12px 12px', fontSize: 11, color: C.muted, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={eventNameMap[b.event_id]}>{eventNameMap[b.event_id] || '—'}</td>}
                 <td style={{ padding: '12px 16px', fontSize: 13, color: C.text }}>{b.item}</td>
                 <td style={{ padding: '12px 16px' }}>
                   <span style={{
