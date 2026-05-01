@@ -19,6 +19,7 @@ const EMPTY_EVENT = {
   company_form_url: '',
   portal_company_url: '',
   portal_student_url: '',
+  parent_id: '',
 }
 
 export default function EventForm() {
@@ -93,6 +94,15 @@ export default function EventForm() {
     }))
   }, [form.event_date])
 
+  // 親イベント候補（自分以外・parent_idを持たないイベント）
+  const parentCandidates = useMemo(() =>
+    events.filter(e => !e.parent_id && e.id !== id)
+  , [events, id])
+
+  const parentEvent = useMemo(() =>
+    form.parent_id ? events.find(e => e.id === form.parent_id) : null
+  , [events, form.parent_id])
+
   const handleChange = (field, value) => {
     setForm(prev => {
       const next = { ...prev, [field]: value }
@@ -105,6 +115,19 @@ export default function EventForm() {
           const match = SMALL_CAT_MAP[value]
           if (match) { next.big_cat = match.bigName; next.mid_cat = match.midName }
         }
+      }
+      // 親イベント選択時: 分類を親から自動入力
+      if (field === 'parent_id' && value) {
+        const parent = events.find(e => e.id === value)
+        if (parent) {
+          next.big_cat   = parent.big_cat   || prev.big_cat
+          next.mid_cat   = parent.mid_cat   || prev.mid_cat
+          next.small_cat = parent.small_cat || prev.small_cat
+        }
+      }
+      if (field === 'parent_id' && !value) {
+        // 親を外した場合はリセット
+        next.big_cat = ''; next.mid_cat = ''; next.small_cat = ''
       }
       return next
     })
@@ -151,6 +174,7 @@ export default function EventForm() {
       if (isEdit) {
         await updateById('events', id, {
           id: eventId,
+          parent_id: form.parent_id,
           name: form.name,
           big_cat: form.big_cat,
           mid_cat: form.mid_cat,
@@ -171,7 +195,7 @@ export default function EventForm() {
           eventId, form.name, form.big_cat, form.mid_cat, form.small_cat,
           form.event_date, form.venue, form.student_goal, form.company_goal,
           form.status || '計画中', form.student_form_url, now, form.company_form_url,
-          form.portal_company_url, form.portal_student_url,
+          form.portal_company_url, form.portal_student_url, form.parent_id,
         ])
         for (const t of taskDrafts) {
           if (!t.name) continue
@@ -208,6 +232,30 @@ export default function EventForm() {
               <input type="text" className="form-input" value={form.name}
                 onChange={e => handleChange('name', e.target.value)}
                 placeholder="例: 〇〇大学向け業界研究セミナー2026春" />
+            </div>
+
+            {/* 親イベント選択（小イベントとして登録する場合） */}
+            <div>
+              <label className="form-label">親イベント</label>
+              <select className="form-select" value={form.parent_id}
+                onChange={e => handleChange('parent_id', e.target.value)}>
+                <option value="">（なし — 単独イベントまたは親イベントとして登録）</option>
+                {parentCandidates.map(ev => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.small_cat ? `[${ev.small_cat}] ` : ''}{ev.name}
+                  </option>
+                ))}
+              </select>
+              {parentEvent && (
+                <p className="text-xs text-gray-400 mt-1">
+                  親: {parentEvent.big_cat}{parentEvent.mid_cat ? ` › ${parentEvent.mid_cat}` : ''} › {parentEvent.small_cat} › {parentEvent.name}
+                </p>
+              )}
+              {!parentEvent && (
+                <p className="text-xs text-gray-400 mt-1">
+                  親イベントを選択すると分類が自動入力され、小イベントとして紐づけられます
+                </p>
+              )}
             </div>
 
             {/* 分類選択：大→中→小、または小から逆引き */}
