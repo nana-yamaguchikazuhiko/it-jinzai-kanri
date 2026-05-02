@@ -385,12 +385,14 @@ export default function EventDetail() {
         </div>
 
         {/* 統計カード 4列 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isChild ? 2 : 4}, 1fr)`, gap: 16, marginBottom: 24 }}>
           {[
             { label: '開催日', value: formatDate(event.event_date) },
             { label: '会場',   value: event.venue || '—' },
-            { label: '学生目標', value: event.student_goal ? `${event.student_goal}名` : '—' },
-            { label: '企業目標', value: event.company_goal ? `${event.company_goal}社` : '—' },
+            ...(!isChild ? [
+              { label: '学生目標', value: event.student_goal ? `${event.student_goal}名` : '—' },
+              { label: '企業目標', value: event.company_goal ? `${event.company_goal}社` : '—' },
+            ] : []),
           ].map(({ label, value }) => (
             <div key={label} style={{ ...CARD_STYLE, padding: '20px 22px' }}>
               <div style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>

@@ -103,6 +103,9 @@ export default function EventForm() {
     form.parent_id ? events.find(e => e.id === form.parent_id) : null
   , [events, form.parent_id])
 
+  const isChildEvent = !!form.parent_id
+  const isParentEvent = isEdit && events.some(e => e.parent_id === id)
+
   const handleChange = (field, value) => {
     setForm(prev => {
       const next = { ...prev, [field]: value }
@@ -323,18 +326,20 @@ export default function EventForm() {
                   placeholder="例: 〇〇大学 A棟301号室" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="form-label">学生参加目標数</label>
-                <input type="number" className="form-input" value={form.student_goal}
-                  onChange={e => handleChange('student_goal', e.target.value)} min="0" />
+            {!isChildEvent && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">学生参加目標数</label>
+                  <input type="number" className="form-input" value={form.student_goal}
+                    onChange={e => handleChange('student_goal', e.target.value)} min="0" />
+                </div>
+                <div>
+                  <label className="form-label">企業参加目標数</label>
+                  <input type="number" className="form-input" value={form.company_goal}
+                    onChange={e => handleChange('company_goal', e.target.value)} min="0" />
+                </div>
               </div>
-              <div>
-                <label className="form-label">企業参加目標数</label>
-                <input type="number" className="form-input" value={form.company_goal}
-                  onChange={e => handleChange('company_goal', e.target.value)} min="0" />
-              </div>
-            </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="form-label">学生申込フォーム 回答スプレッドシートURL</label>
@@ -363,7 +368,7 @@ export default function EventForm() {
                   placeholder="https://..." />
               </div>
             </div>
-            {isEdit && (
+            {isEdit && !isParentEvent && (
               <div>
                 <label className="form-label">ステータス</label>
                 <select className="form-select w-40" value={form.status}
