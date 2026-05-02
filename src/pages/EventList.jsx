@@ -180,7 +180,7 @@ export default function EventList() {
                       )}
                       <h3 className="font-semibold text-gray-800 text-sm leading-snug" style={{ display: 'inline' }}>{ev.name}</h3>
                     </div>
-                    <EventStatusBadge status={ev.status} />
+                    {!isParentEv && <EventStatusBadge status={ev.status} />}
                   </div>
                   <div className="text-xs text-gray-400 space-y-0.5 mb-3">
                     <div>{ev.big_cat} › {ev.mid_cat} › <span className="text-gray-600">{ev.small_cat}</span></div>
