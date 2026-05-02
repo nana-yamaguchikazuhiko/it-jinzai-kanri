@@ -15,7 +15,9 @@ const midColor = (midCat) => MID_CAT_COLORS[midCat] || MID_CAT_DEFAULT_COLOR
 
 // 子イベント用 期日ベース自動ステータス
 function childMiniStatus(child, childTasks, today) {
-  if (child.status === '完了') return { label: '順調', bg: '#dcfce7', color: '#16a34a' }
+  if (child.status === '完了') return { label: '完了', bg: '#dbeafe', color: '#2563eb' }
+  if (childTasks.length > 0 && childTasks.every(t => t.status === '完了'))
+    return { label: '完了', bg: '#dbeafe', color: '#2563eb' }
   const addDays = (base, n) => {
     const d = new Date(base); d.setDate(d.getDate() + n)
     return d.toISOString().split('T')[0]
