@@ -13,10 +13,40 @@ function formatDate(dateStr) {
 
 const midColor = (midCat) => MID_CAT_COLORS[midCat] || MID_CAT_DEFAULT_COLOR
 
+// 子イベント用 期日ベース自動ステータス
+function childMiniStatus(child, childTasks, today) {
+  const addDays = (base, n) => {
+    const d = new Date(base); d.setDate(d.getDate() + n)
+    return d.toISOString().split('T')[0]
+  }
+  const in5 = addDays(today, 5)
+  const in7 = addDays(today, 7)
+  const incomplete = childTasks.filter(t => t.status !== '完了')
+
+  let hasOverdue = false, hasSoonDue = false, hasSoonStart = false
+
+  if (incomplete.length > 0) {
+    hasOverdue  = incomplete.some(t => t.due_date   && t.due_date   <  today)
+    hasSoonDue  = incomplete.some(t => t.due_date   && t.due_date   <= in5)
+    hasSoonStart= incomplete.some(t => t.start_date && t.start_date <= in7)
+  } else if (child.event_date && child.event_date !== '通年') {
+    hasOverdue   = child.event_date < today
+    hasSoonDue   = child.event_date <= in5
+    hasSoonStart = child.event_date <= in7
+  }
+
+  if (hasOverdue)   return { label: 'やばい！',   bg: '#fee2e2', color: '#dc2626' }
+  if (hasSoonDue)   return { label: '着手して！', bg: '#fed7aa', color: '#ea580c' }
+  if (hasSoonStart) return { label: '着手しよう', bg: '#fef9c3', color: '#ca8a04' }
+  return             { label: '順調',            bg: '#dcfce7', color: '#16a34a' }
+}
+
 export default function EventList() {
   const navigate = useNavigate()
   const { rows: events, loading, error } = useSheets('events')
   const { rows: tasks } = useSheets('tasks')
+
+  const today = new Date().toISOString().split('T')[0]
 
   const [filterSmallCat, setFilterSmallCat] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -201,17 +231,23 @@ export default function EventList() {
                 </div>
                 {isParentEv && (
                   <div style={{ borderTop: '1px solid #f1f5f9', background: '#fafbfc' }}>
-                    {children.map((child, ci) => (
-                      <div key={child.id}
-                        style={{ padding: '7px 14px 7px 18px', display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', borderBottom: ci < children.length - 1 ? '1px solid #f1f5f9' : 'none' }}
-                        className="hover:bg-gray-100 transition-colors"
-                        onClick={e => { e.stopPropagation(); navigate(`/events/${child.id}`) }}>
-                        <span style={{ color: '#d1d5db', fontSize: 11, flexShrink: 0 }}>└</span>
-                        <span style={{ fontSize: 12, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{child.name}</span>
-                        <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(child.event_date)}</span>
-                        <EventStatusBadge status={child.status} />
-                      </div>
-                    ))}
+                    {children.map((child, ci) => {
+                      const childTasks = tasks.filter(t => t.event_id === child.id)
+                      const mini = childMiniStatus(child, childTasks, today)
+                      return (
+                        <div key={child.id}
+                          style={{ padding: '7px 14px 7px 18px', display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', borderBottom: ci < children.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+                          className="hover:bg-gray-100 transition-colors"
+                          onClick={e => { e.stopPropagation(); navigate(`/events/${child.id}`) }}>
+                          <span style={{ color: '#d1d5db', fontSize: 11, flexShrink: 0 }}>└</span>
+                          <span style={{ fontSize: 12, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{child.name}</span>
+                          <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(child.event_date)}</span>
+                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: mini.bg, color: mini.color, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            {mini.label}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
