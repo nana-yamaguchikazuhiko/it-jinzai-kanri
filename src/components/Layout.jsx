@@ -1,11 +1,12 @@
 import Sidebar from './Sidebar'
 import { Outlet } from 'react-router-dom'
+import { T } from '../constants/theme'
 
 export default function Layout() {
   return (
-    <div className="flex min-h-screen" style={{ background: '#f0f4f8' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: T.bg }}>
       <Sidebar />
-      <main className="flex-1 min-h-screen" style={{ marginLeft: 228 }}>
+      <main style={{ flex: 1, marginLeft: 232, display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'auto' }}>
         <Outlet />
       </main>
     </div>

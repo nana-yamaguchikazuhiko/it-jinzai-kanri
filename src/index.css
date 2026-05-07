@@ -2,11 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary:       #26b99a;
+  --color-primary-hover: #1ea286;
+  --color-primary-light: #d8efe9;
+  --color-primary-bg:    #ecf6f3;
+  --color-sidebar:       #2a3f54;
+  --color-ink:           #37474f;
+  --color-ink-soft:      #5b6b78;
+  --color-muted:         #9aa7b1;
+  --color-bg:            #f7f7f7;
+  --color-surface:       #ffffff;
+  --color-border:        #e6e9ed;
+}
+
 @layer base {
   body {
     font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
-    background-color: #f0f4f8;
-    color: #1e2d3d;
+    background-color: #f7f7f7;
+    color: #37474f;
   }
 }
 

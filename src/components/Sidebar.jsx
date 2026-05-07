@@ -1,66 +1,76 @@
 import { NavLink } from 'react-router-dom'
+import { T } from '../constants/theme'
+import { Icon } from './Icons'
 
 const NAV_ITEMS = [
-  { path: '/',             label: 'ダッシュボード',          icon: '⊞' },
-  { path: '/fieldnotes',   label: 'フィールドノート',        icon: '✎' },
-  { path: '/events',       label: 'イベント管理',            icon: '◈' },
-  { path: '/tasks',        label: 'タスク一覧',              icon: '☑' },
-  { path: '/budget',       label: '予算管理',                icon: '¥' },
-  { path: '/stakeholders', label: 'ステークホルダー',        icon: '◎' },
-  { path: '/goals',        label: '目標・実績管理',          icon: '◉' },
-  { path: '/mails',        label: '問い合わせ管理（実装中）', icon: '✉' },
-  { path: '/templates',    label: 'タスクテンプレート',      icon: '▤' },
-  { path: '/snippets',     label: 'スニペット',              icon: '〈〉' },
+  { path: '/',             label: 'ダッシュボード',          icon: Icon.dashboard },
+  { path: '/fieldnotes',   label: 'フィールドノート',        icon: Icon.note      },
+  { path: '/events',       label: 'イベント管理',            icon: Icon.event     },
+  { path: '/tasks',        label: 'タスク一覧',              icon: Icon.task      },
+  { path: '/budget',       label: '予算管理',                icon: Icon.yen       },
+  { path: '/stakeholders', label: 'ステークホルダー',        icon: Icon.users     },
+  { path: '/goals',        label: '目標・実績管理',          icon: Icon.target    },
+  { path: '/mails',        label: '問い合わせ管理',          icon: Icon.mail,     suffix: '実装中' },
+  { path: '/templates',    label: 'タスクテンプレート',      icon: Icon.template  },
+  { path: '/snippets',     label: 'スニペット',              icon: Icon.code      },
 ]
 
 export default function Sidebar() {
   return (
     <aside
       className="fixed left-0 top-0 h-screen flex flex-col z-20"
-      style={{ width: 228, background: '#0f1c2e' }}
+      style={{ width: 232, background: T.sidebar }}
     >
       {/* ブランド */}
-      <div style={{ padding: '28px 22px 22px' }}>
-        <p style={{ fontSize: 9, color: 'rgba(6,182,212,0.7)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
+      <div style={{ padding: '22px 22px 18px' }}>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.14em', marginBottom: 4, textTransform: 'uppercase' }}>
           MISA人材確保事業
-        </p>
-        <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', letterSpacing: '-0.005em', whiteSpace: 'nowrap' }}>
           運営管理システム
-        </p>
+        </div>
       </div>
 
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 22px 12px' }} />
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 16px 8px' }} />
 
       {/* ナビ */}
-      <nav className="flex-1 overflow-y-auto" style={{ padding: '4px 0' }}>
-        {NAV_ITEMS.map(({ path, label, icon }) => (
+      <nav className="flex-1 overflow-y-auto" style={{ padding: '4px 12px' }}>
+        {NAV_ITEMS.map(({ path, label, icon, suffix }) => (
           <NavLink
             key={path}
             to={path}
             end={path === '/'}
             style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '11px 22px',
-              fontSize: 13,
+              display: 'flex', alignItems: 'center', gap: 11,
+              padding: '10px 12px', margin: '1px 0', borderRadius: 4,
+              background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+              color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
               fontWeight: isActive ? 600 : 400,
-              color: isActive ? '#06b6d4' : 'rgba(255,255,255,0.5)',
-              background: isActive ? 'rgba(6,182,212,0.15)' : 'transparent',
-              borderLeft: isActive ? '3px solid #06b6d4' : '3px solid transparent',
-              textDecoration: 'none',
-              transition: 'color 0.15s, background 0.15s',
+              fontSize: 13, position: 'relative',
+              textDecoration: 'none', cursor: 'pointer',
             })}
           >
-            <span style={{ fontSize: 13 }}>{icon}</span>
-            {label}
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span style={{ position: 'absolute', left: -12, top: 8, bottom: 8, width: 3, background: T.teal, borderRadius: '0 2px 2px 0' }} />
+                )}
+                <span style={{ display: 'inline-flex', opacity: isActive ? 1 : 0.55, flexShrink: 0 }}>
+                  {icon(15)}
+                </span>
+                <span style={{ flex: 1 }}>{label}</span>
+                {suffix && (
+                  <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>{suffix}</span>
+                )}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
       {/* バージョン */}
-      <div style={{ padding: '16px 22px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>v1.0.0 Phase 1</p>
+      <div style={{ padding: '12px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+        v1.0.0 · Phase 1
       </div>
     </aside>
   )

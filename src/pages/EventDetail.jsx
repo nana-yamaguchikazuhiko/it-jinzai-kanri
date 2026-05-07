@@ -7,14 +7,19 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { updateById, appendRow, deleteById, generateId } from '../api/sheets'
 import { ContactStatusBadge, EventStatusBadge } from '../components/StatusBadge'
+import { T } from '../constants/theme'
+import { Icon } from '../components/Icons'
+import Btn from '../components/Btn'
+import Badge, { eventStatusTone, taskStatusTone, contactStatusTone } from '../components/Badge'
+import CategoryChip, { getEventCatKey } from '../components/CategoryChip'
 
-const PRIMARY = '#06b6d4'
-const PRIMARY_DARK = '#0891b2'
-const TEXT_PRIMARY = '#1e2d3d'
-const TEXT_MUTED = '#94a3b8'
-const TEXT_SECONDARY = '#64748b'
-const BORDER = '#e8edf2'
-const CARD_STYLE = { background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}`, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }
+const PRIMARY      = T.teal
+const PRIMARY_DARK = T.tealHover
+const TEXT_PRIMARY = T.ink
+const TEXT_MUTED   = T.muted
+const TEXT_SECONDARY = T.inkSoft
+const BORDER       = T.border
+const CARD_STYLE   = { background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -296,40 +301,41 @@ export default function EventDetail() {
   const btnBase = { padding: '7px 18px', borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f4f8' }}>
+    <div style={{ minHeight: '100vh', background: T.bg }}>
 
       {/* ── Top Bar ─────────────────────────────────── */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 36px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: T.surface, borderBottom: `1px solid ${T.border}`, padding: '0 28px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
           <button onClick={() => navigate('/events')}
-            style={{ fontSize: 13, color: PRIMARY, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
-            ← イベント一覧へ戻る
+            style={{ fontSize: 13, color: T.teal, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {Icon.chevL(14)} イベント一覧
           </button>
+          <span style={{ color: T.faint }}>›</span>
+          <span style={{ color: T.ink, fontWeight: 500 }}>イベント詳細</span>
           {isChild && parentEvent && (
             <>
-              <span style={{ color: '#d1d5db', fontSize: 14 }}>/</span>
+              <span style={{ color: T.faint }}>›</span>
               <button onClick={() => navigate(`/events/${parentEvent.id}`)}
-                style={{ fontSize: 12, color: '#0891b2', background: '#e0f7fa', border: '1px solid #b2ebf2', borderRadius: 5, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
-                親: {parentEvent.name}
+                style={{ fontSize: 12, color: T.teal, background: T.tealBg, border: `1px solid ${T.tealLight}`, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                {parentEvent.name}
               </button>
             </>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {activeTab === 'report' && (
-            <button onClick={() => setShowPdfModal(true)}
-              style={{ ...btnBase, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b' }}>
-              PDF出力
-            </button>
+            <Btn kind="ghost" size="sm" onClick={() => setShowPdfModal(true)}>PDF出力</Btn>
           )}
-          <button onClick={() => navigate(`/events/${id}/edit`)}
-            style={{ ...btnBase, background: PRIMARY, color: '#fff', border: 'none' }}>
-            編集
-          </button>
-          <button onClick={handleDeleteEvent}
-            style={{ ...btnBase, border: '1px solid #fecaca', background: '#fff5f5', color: '#ef4444' }}>
-            削除
-          </button>
+          <Btn kind="ghost" size="sm" icon={Icon.edit()} onClick={() => navigate(`/events/${id}/edit`)}>編集</Btn>
+          <Btn kind="danger" size="sm" icon={Icon.trash()} onClick={handleDeleteEvent}>削除</Btn>
+          {/* ベル + アバター */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+            <button style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, color: T.inkSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'relative', cursor: 'pointer' }}>
+              {Icon.bell(16)}
+              <span style={{ position: 'absolute', top: 8, right: 9, width: 7, height: 7, borderRadius: '50%', background: T.danger, border: `1.5px solid ${T.surface}` }} />
+            </button>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: T.teal, color: '#fff', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>YN</div>
+          </div>
         </div>
       </div>
 
@@ -359,47 +365,26 @@ export default function EventDetail() {
       <div ref={reportRef} style={{ padding: '32px 36px' }}>
 
         {/* イベントヘッダー */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-            {[event.big_cat, event.mid_cat, event.small_cat].filter(Boolean).map((tag, i) => (
-              <span key={i} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 4, background: '#e0f7fa', color: '#0891b2', fontWeight: 500, border: '1px solid #b2ebf2' }}>
-                {tag}
-              </span>
-            ))}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <CategoryChip cat={getEventCatKey(event.small_cat)} size="md" />
+            <span style={{ fontSize: 12, color: T.inkSoft, fontWeight: 500 }}>{event.mid_cat || event.big_cat}</span>
+            {event.small_cat && <><span style={{ color: T.faint }}>›</span><span style={{ fontSize: 12, color: T.inkSoft, fontWeight: 500 }}>{event.small_cat}</span></>}
+            {isParent && <Badge tone="neutral" size="sm">親イベント ({childEvents.length}件)</Badge>}
+            {isChild  && <Badge tone="neutral" size="sm">小イベント</Badge>}
+            <Badge tone={eventStatusTone(event.status)} dot size="sm">{event.status || '—'}</Badge>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: TEXT_PRIMARY, letterSpacing: '-0.02em', lineHeight: 1.4 }}>
-              {event.name}
-            </h1>
-            {isParent && (
-              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: '#e0f7fa', color: '#0891b2', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                親イベント ({childEvents.length}件)
-              </span>
-            )}
-            {isChild && (
-              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: '#f1f5f9', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                小イベント
-              </span>
-            )}
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: TEXT_PRIMARY, letterSpacing: '-0.01em', lineHeight: 1.4, marginBottom: 14 }}>
+            {event.name}
+          </h1>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'center', fontSize: 13, color: T.inkSoft }}>
+            <div><span style={{ color: T.muted, marginRight: 6 }}>開催日</span><strong style={{ color: T.ink, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatDate(event.event_date)}</strong></div>
+            {event.venue && <div><span style={{ color: T.muted, marginRight: 6 }}>会場</span><strong style={{ color: T.ink, fontWeight: 600 }}>{event.venue}</strong></div>}
+            {!isChild && event.student_goal && <div><span style={{ color: T.muted, marginRight: 6 }}>学生目標</span><strong style={{ color: T.ink, fontWeight: 600 }}>{event.student_goal}名</strong></div>}
+            {!isChild && event.company_goal && <div><span style={{ color: T.muted, marginRight: 6 }}>企業目標</span><strong style={{ color: T.ink, fontWeight: 600 }}>{event.company_goal}社</strong></div>}
           </div>
         </div>
 
-        {/* 統計カード 4列 */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isChild ? 2 : 4}, 1fr)`, gap: 16, marginBottom: 24 }}>
-          {[
-            { label: '開催日', value: formatDate(event.event_date) },
-            { label: '会場',   value: event.venue || '—' },
-            ...(!isChild ? [
-              { label: '学生目標', value: event.student_goal ? `${event.student_goal}名` : '—' },
-              { label: '企業目標', value: event.company_goal ? `${event.company_goal}社` : '—' },
-            ] : []),
-          ].map(({ label, value }) => (
-            <div key={label} style={{ ...CARD_STYLE, padding: '20px 22px' }}>
-              <div style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: TEXT_PRIMARY, letterSpacing: '-0.02em' }}>{value}</div>
-            </div>
-          ))}
-        </div>
 
         {/* ポータルサイトURL */}
         {(event.portal_company_url || event.portal_student_url) && (
@@ -498,42 +483,40 @@ export default function EventDetail() {
         <div style={{ ...CARD_STYLE, overflow: 'hidden' }}>
 
           {/* タブバー */}
-          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9', padding: '0 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: `1px solid ${T.borderSoft}`, padding: '0 22px' }}>
             {[
-              ...(isParent ? [{ key: 'children', label: `小イベント (${childEvents.length})` }] : []),
-              { key: 'tasks',        label: `タスク (${evTasks.length})` },
+              ...(isParent ? [{ key: 'children', label: '小イベント', count: childEvents.length }] : []),
+              { key: 'tasks',        label: 'タスク',           count: evTasks.length },
               { key: 'gantt',        label: 'ガントチャート' },
-              { key: 'stakeholders', label: `ステークホルダー (${evStakeholders.length})` },
+              { key: 'stakeholders', label: 'ステークホルダー', count: evStakeholders.length },
               { key: 'budget',       label: '収支' },
               { key: 'docs',         label: 'ドキュメント' },
               { key: 'report',       label: '分析・レポート' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                 style={{
-                  padding: '14px 18px', fontSize: 13,
-                  fontWeight: activeTab === tab.key ? 700 : 400,
-                  color: activeTab === tab.key ? PRIMARY : TEXT_MUTED,
+                  padding: '14px 16px', fontSize: 13,
+                  fontWeight: activeTab === tab.key ? 700 : 500,
+                  color: activeTab === tab.key ? T.teal : T.inkSoft,
                   background: 'none', border: 'none',
-                  borderBottom: activeTab === tab.key ? `2px solid ${PRIMARY}` : '2px solid transparent',
+                  borderBottom: activeTab === tab.key ? `2px solid ${T.teal}` : '2px solid transparent',
                   marginBottom: -1, cursor: 'pointer', fontFamily: 'inherit',
                 }}>
                 {tab.label}
+                {tab.count != null && <span style={{ marginLeft: 5, fontSize: 11, color: activeTab === tab.key ? T.teal : T.muted, fontWeight: 600 }}>{tab.count}</span>}
               </button>
             ))}
-            <div style={{ marginLeft: 'auto' }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
               {activeTab === 'tasks' && !isParent && (
-                <button
-                  style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                <Btn kind="primary" size="sm" icon={Icon.plus()}
                   onClick={() => { setAddingTask(true); setEditingTaskId(null) }}>
-                  + タスク追加
-                </button>
+                  タスク追加
+                </Btn>
               )}
               {activeTab === 'stakeholders' && (
-                <button
-                  style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-                  onClick={() => setAddingSH(true)}>
-                  + ステークホルダーを紐づける
-                </button>
+                <Btn kind="primary" size="sm" icon={Icon.plus()} onClick={() => setAddingSH(true)}>
+                  ステークホルダーを紐づける
+                </Btn>
               )}
             </div>
           </div>
