@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { appendRow, updateById, generateId } from '../api/sheets'
 import { CATEGORIES, STANDALONE_SMALL_CATS } from '../constants/categories'
+import { T } from '../constants/theme'
+import TopBar from '../components/TopBar'
+import Btn from '../components/Btn'
 
-const PRIMARY = '#06b6d4'
-const TEXT_PRIMARY = '#1e2d3d'
-const TEXT_MUTED = '#94a3b8'
-const TEXT_SECONDARY = '#64748b'
-const BORDER = '#e8edf2'
+const PRIMARY = T.teal
+const TEXT_PRIMARY = T.ink
+const TEXT_MUTED = T.muted
+const TEXT_SECONDARY = T.inkSoft
+const BORDER = T.border
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -104,10 +107,9 @@ export default function BudgetManagement() {
   const loading = le || lb || lc
 
   return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
+      <TopBar><span>予算管理</span></TopBar>
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800">予算管理</h1>
-      </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', color: TEXT_MUTED, padding: '60px 0', fontSize: 14 }}>読み込み中...</div>
@@ -209,7 +211,7 @@ export default function BudgetManagement() {
               </div>
             ) : catBudget ? (
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginTop: 8 }}>
-                <span style={{ fontSize: 28, fontWeight: 800, color: '#0891b2', fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: T.teal, fontVariantNumeric: 'tabular-nums' }}>
                   ¥{fmtAmt(catBudget.amount)}
                 </span>
                 {catBudget.note && (
@@ -271,7 +273,7 @@ export default function BudgetManagement() {
                                 <span style={{
                                   fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 600,
                                   background: isIncome(b.type) ? '#e0f7fa' : '#fef3c7',
-                                  color: isIncome(b.type) ? '#0891b2' : '#d97706',
+                                  color: isIncome(b.type) ? T.teal : '#d97706',
                                 }}>{isIncome(b.type) ? '収入' : '支出'}</span>
                               </td>
                               <td style={{ padding: '9px 20px', fontSize: 13, color: TEXT_PRIMARY, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
@@ -297,7 +299,7 @@ export default function BudgetManagement() {
               <tbody>
                 <tr style={{ borderBottom: `1px solid #f1f5f9` }}>
                   <td style={{ padding: '14px 20px', fontSize: 13, color: TEXT_SECONDARY }}>小分類予算（活動費）</td>
-                  <td style={{ padding: '14px 20px', fontSize: 15, fontWeight: 700, color: '#0891b2', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  <td style={{ padding: '14px 20px', fontSize: 15, fontWeight: 700, color: T.teal, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                     ¥{fmtAmt(catBudgetAmt)}
                   </td>
                 </tr>
@@ -329,14 +331,15 @@ export default function BudgetManagement() {
         </>
       )}
     </div>
+    </div>
   )
 }
 
 // ── 全体収支タブ ──
 function SummaryTab({ smallCats, catBudgets, evBudgets, events }) {
-  const BORDER = '#e8edf2'
-  const TEXT_PRIMARY = '#1e2d3d'
-  const TEXT_MUTED = '#94a3b8'
+  const BORDER = T.border
+  const TEXT_PRIMARY = T.ink
+  const TEXT_MUTED = T.muted
 
   const rows = smallCats.map(cat => {
     const catBudget = catBudgets.find(b => b.small_cat === cat)
@@ -385,7 +388,7 @@ function SummaryTab({ smallCats, catBudgets, evBudgets, events }) {
           {rows.map(r => (
             <tr key={r.cat} style={{ borderTop: `1px solid #f1f5f9` }}>
               <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{r.cat}</td>
-              {tdNum(r.budget,  '#0891b2')}
+              {tdNum(r.budget,  T.teal)}
               {tdNum(r.income,  '#16a34a')}
               {tdNum(r.expense, '#d97706')}
               {tdNum(r.profit,  r.profit >= 0 ? '#16a34a' : '#ef4444')}
@@ -395,7 +398,7 @@ function SummaryTab({ smallCats, catBudgets, evBudgets, events }) {
         <tfoot>
           <tr style={{ borderTop: `2px solid ${BORDER}`, background: '#f8fafc' }}>
             <td style={{ padding: '14px 20px', fontSize: 13, fontWeight: 700, color: TEXT_PRIMARY }}>合計</td>
-            {tdNum(totals.budget,  '#0891b2', true)}
+            {tdNum(totals.budget,  T.teal, true)}
             {tdNum(totals.income,  '#16a34a', true)}
             {tdNum(totals.expense, '#d97706', true)}
             {tdNum(totals.profit,  totals.profit >= 0 ? '#16a34a' : '#ef4444', true)}

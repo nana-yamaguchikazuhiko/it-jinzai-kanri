@@ -4,6 +4,10 @@ import { useSheets } from '../hooks/useSheets'
 import { appendRow, updateById, generateId } from '../api/sheets'
 import { CATEGORIES, SMALL_CAT_MAP, STANDALONE_SMALL_CATS } from '../constants/categories'
 import { getTemplateBySmallCat, calcDueDate, calcStartDate } from '../constants/taskTemplates'
+import { T } from '../constants/theme'
+import { Icon } from '../components/Icons'
+import TopBar from '../components/TopBar'
+import Btn from '../components/Btn'
 
 const EMPTY_EVENT = {
   name: '',
@@ -218,13 +222,17 @@ export default function EventForm() {
   }
 
   return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
+      <TopBar>
+        <button onClick={() => navigate(-1)}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: T.inkSoft, background: 'none', border: 'none', cursor: 'pointer', marginRight: 8 }}>
+          {Icon.chevL()} 戻る
+        </button>
+        <span>{isEdit ? 'イベント編集' : 'イベント新規登録'}</span>
+      </TopBar>
     <div className="p-6 max-w-3xl">
-      <div className="flex items-center gap-3 mb-6">
-        <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate(-1)}>← 戻る</button>
-        <h1 className="text-xl font-bold text-gray-800">{isEdit ? 'イベント編集' : 'イベント新規登録'}</h1>
-      </div>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm mb-4">{error}</div>}
+      {error && <div style={{ background: T.dangerBg, border: `1px solid ${T.danger}`, color: T.dangerText, borderRadius: 8, padding: '12px 16px', fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <section className="bg-white rounded-lg border border-gray-100 p-5">
@@ -405,12 +413,12 @@ export default function EventForm() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr style={{ background: '#0f1c2e' }} className="text-white">
-                      <th className="text-left px-3 py-2 font-medium">タスク名</th>
-                      <th className="text-left px-3 py-2 font-medium w-28">カテゴリ</th>
-                      <th className="text-left px-3 py-2 font-medium w-32">開始日</th>
-                      <th className="text-left px-3 py-2 font-medium w-32">期日</th>
-                      <th className="px-3 py-2 w-8"></th>
+                    <tr style={{ background: T.surfaceAlt, borderBottom: `1px solid ${T.borderSoft}` }}>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>タスク名</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.04em', textTransform: 'uppercase', width: 110 }}>カテゴリ</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.04em', textTransform: 'uppercase', width: 128 }}>開始日</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.04em', textTransform: 'uppercase', width: 128 }}>期日</th>
+                      <th style={{ padding: '8px 12px', width: 32 }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -445,15 +453,14 @@ export default function EventForm() {
           </section>
         )}
 
-        <div className="flex gap-3">
-          <button type="submit" disabled={saving}
-            className="px-6 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ background: '#06b6d4' }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Btn kind="primary" style={{ opacity: saving ? 0.6 : 1 }}>
             {saving ? '保存中...' : isEdit ? '更新する' : '登録する'}
-          </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>キャンセル</button>
+          </Btn>
+          <Btn kind="ghost" type="button" onClick={() => navigate(-1)}>キャンセル</Btn>
         </div>
       </form>
+    </div>
     </div>
   )
 }

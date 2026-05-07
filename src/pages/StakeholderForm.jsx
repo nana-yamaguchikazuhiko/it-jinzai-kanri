@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { appendRow, updateById, generateId } from '../api/sheets'
+import { T } from '../constants/theme'
+import { Icon } from '../components/Icons'
+import TopBar from '../components/TopBar'
+import Btn from '../components/Btn'
 
 const EMPTY_SH = {
   name: '',
@@ -23,15 +27,23 @@ const SH_TYPES = ['会員企業', '委員会企業', '教育機関', '行政', '
 const INSTITUTION_TYPES = ['大学・高専_情報系', '大学・短大_非情報系', '専門学校', '企業', '行政', 'その他']
 const CONTACT_STATUSES = ['未連絡', '連絡中', '送付済', '回答済']
 
+const inputStyle = {
+  width: '100%', fontSize: 13, fontFamily: 'inherit', color: T.ink,
+  border: `1px solid ${T.border}`, borderRadius: 8, padding: '9px 12px',
+  background: T.surface, outline: 'none',
+}
+const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: T.inkSoft, marginBottom: 6 }
+const sectionStyle = { background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, padding: '20px 22px', marginBottom: 18, boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }
+
 export default function StakeholderForm() {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
 
   const { rows: stakeholders } = useSheets('stakeholders')
-  const [form, setForm] = useState(EMPTY_SH)
+  const [form,   setForm  ] = useState(EMPTY_SH)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error,  setError ] = useState(null)
 
   useEffect(() => {
     if (isEdit && stakeholders.length > 0) {
@@ -46,33 +58,18 @@ export default function StakeholderForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.name) {
-      setError('名称は必須です')
-      return
-    }
+    if (!form.name) { setError('名称は必須です'); return }
     setSaving(true)
     setError(null)
-
     try {
       if (isEdit) {
         await updateById('stakeholders', id, form)
       } else {
-        const now = new Date().toISOString()
         await appendRow('stakeholders', [
-          generateId(),
-          form.name,
-          form.type,
-          form.contact_name,
-          form.email,
-          form.phone,
-          form.address,
-          form.contact_status,
-          form.next_action,
-          form.next_action_date,
-          form.memo,
-          form.department,
-          form.position,
-          form.institution_type,
+          generateId(), form.name, form.type, form.contact_name,
+          form.email, form.phone, form.address, form.contact_status,
+          form.next_action, form.next_action_date, form.memo,
+          form.department, form.position, form.institution_type,
         ])
       }
       navigate('/stakeholders')
@@ -84,192 +81,146 @@ export default function StakeholderForm() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <button className="text-sm text-gray-500 hover:text-gray-700" onClick={() => navigate(-1)}>
-          ← 戻る
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
+      <TopBar>
+        <button onClick={() => navigate(-1)}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: T.inkSoft, background: 'none', border: 'none', cursor: 'pointer', marginRight: 8 }}>
+          {Icon.chevL()} 戻る
         </button>
-        <h1 className="text-xl font-bold text-gray-800">
-          {isEdit ? 'ステークホルダー編集' : 'ステークホルダー新規登録'}
-        </h1>
-      </div>
+        <span>{isEdit ? 'ステークホルダー編集' : 'ステークホルダー新規登録'}</span>
+      </TopBar>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 text-sm mb-4">{error}</div>
-      )}
+      <div style={{ padding: '24px 28px', flex: 1, maxWidth: 720 }}>
+        {error && (
+          <div style={{ background: T.dangerBg, border: `1px solid ${T.danger}`, color: T.dangerText, borderRadius: 8, padding: '12px 16px', fontSize: 13, marginBottom: 16 }}>
+            {error}
+          </div>
+        )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <section className="bg-white rounded-lg border border-gray-100 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4 border-b pb-2">基本情報</h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit}>
+          {/* 基本情報 */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 16, paddingBottom: 10, borderBottom: `1px solid ${T.borderSoft}` }}>基本情報</h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
-                <label className="form-label">名称 <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.name}
+                <label style={labelStyle}>名称 <span style={{ color: T.danger }}>*</span></label>
+                <input type="text" style={inputStyle} value={form.name}
                   onChange={e => handleChange('name', e.target.value)}
-                  placeholder="例: 〇〇大学 キャリアセンター"
-                />
+                  placeholder="例: 〇〇大学 キャリアセンター" />
               </div>
               <div>
-                <label className="form-label">種別</label>
-                <select
-                  className="form-select"
-                  value={form.type}
-                  onChange={e => handleChange('type', e.target.value)}
-                >
+                <label style={labelStyle}>種別</label>
+                <select style={inputStyle} value={form.type}
+                  onChange={e => handleChange('type', e.target.value)}>
                   <option value="">選択...</option>
                   {SH_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
             </div>
-            <div>
-              <label className="form-label">機関種別（フィールドノート分類）</label>
-              <select
-                className="form-select"
-                value={form.institution_type}
-                onChange={e => handleChange('institution_type', e.target.value)}
-              >
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>機関種別（フィールドノート分類）</label>
+              <select style={inputStyle} value={form.institution_type}
+                onChange={e => handleChange('institution_type', e.target.value)}>
                 <option value="">選択...</option>
                 {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-              <p className="text-xs text-gray-400 mt-1">フィールドノートにステークホルダーを紐づける際の分類に使用します</p>
+              <p style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>フィールドノートにステークホルダーを紐づける際の分類に使用します</p>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
-                <label className="form-label">担当者名</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.contact_name}
+                <label style={labelStyle}>担当者名</label>
+                <input type="text" style={inputStyle} value={form.contact_name}
                   onChange={e => handleChange('contact_name', e.target.value)}
-                  placeholder="例: 山田 太郎"
-                />
+                  placeholder="例: 山田 太郎" />
               </div>
               <div>
-                <label className="form-label">所属（部署・学部等）</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.department}
+                <label style={labelStyle}>所属（部署・学部等）</label>
+                <input type="text" style={inputStyle} value={form.department}
                   onChange={e => handleChange('department', e.target.value)}
-                  placeholder="例: キャリアセンター"
-                />
+                  placeholder="例: キャリアセンター" />
               </div>
               <div>
-                <label className="form-label">役職</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.position}
+                <label style={labelStyle}>役職</label>
+                <input type="text" style={inputStyle} value={form.position}
                   onChange={e => handleChange('position', e.target.value)}
-                  placeholder="例: 課長"
-                />
+                  placeholder="例: 課長" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
-                <label className="form-label">メールアドレス</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={form.email}
-                  onChange={e => handleChange('email', e.target.value)}
-                />
+                <label style={labelStyle}>メールアドレス</label>
+                <input type="email" style={inputStyle} value={form.email}
+                  onChange={e => handleChange('email', e.target.value)} />
               </div>
               <div>
-                <label className="form-label">電話番号</label>
-                <input
-                  type="tel"
-                  className="form-input"
-                  value={form.phone}
-                  onChange={e => handleChange('phone', e.target.value)}
-                />
+                <label style={labelStyle}>電話番号</label>
+                <input type="tel" style={inputStyle} value={form.phone}
+                  onChange={e => handleChange('phone', e.target.value)} />
               </div>
             </div>
+
             <div>
-              <label className="form-label">住所</label>
-              <input
-                type="text"
-                className="form-input"
-                value={form.address}
-                onChange={e => handleChange('address', e.target.value)}
-              />
+              <label style={labelStyle}>住所</label>
+              <input type="text" style={inputStyle} value={form.address}
+                onChange={e => handleChange('address', e.target.value)} />
             </div>
           </div>
-        </section>
 
-        <section className="bg-white rounded-lg border border-gray-100 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4 border-b pb-2">連絡状況・次アクション</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="form-label">連絡状況</label>
-              <div className="flex gap-2">
+          {/* 連絡状況・次アクション */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 16, paddingBottom: 10, borderBottom: `1px solid ${T.borderSoft}` }}>連絡状況・次アクション</h2>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>連絡状況</label>
+              <div style={{ display: 'flex', gap: 6 }}>
                 {CONTACT_STATUSES.map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    className={`px-3 py-1.5 text-xs rounded border font-medium transition-colors ${
-                      form.contact_status === s
-                        ? 'text-gray-900 border-transparent'
-                        : 'text-gray-500 border-gray-200 hover:border-gray-300'
-                    }`}
-                    style={form.contact_status === s ? { background: '#06b6d4' } : {}}
+                  <button key={s} type="button"
                     onClick={() => handleChange('contact_status', s)}
-                  >
+                    style={{
+                      padding: '6px 14px', fontSize: 12, borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
+                      background: form.contact_status === s ? T.teal : T.surfaceAlt,
+                      color: form.contact_status === s ? '#fff' : T.inkSoft,
+                      border: `1px solid ${form.contact_status === s ? T.teal : T.border}`,
+                    }}>
                     {s}
                   </button>
                 ))}
               </div>
             </div>
-            <div>
-              <label className="form-label">次アクション</label>
-              <input
-                type="text"
-                className="form-input"
-                value={form.next_action}
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>次アクション</label>
+              <input type="text" style={inputStyle} value={form.next_action}
                 onChange={e => handleChange('next_action', e.target.value)}
-                placeholder="例: 案内メールの返信を確認する"
-              />
+                placeholder="例: 案内メールの返信を確認する" />
             </div>
-            <div>
-              <label className="form-label">次アクション期限</label>
-              <input
-                type="date"
-                className="form-input w-48"
-                value={form.next_action_date}
-                onChange={e => handleChange('next_action_date', e.target.value)}
-              />
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>次アクション期限</label>
+              <input type="date" style={{ ...inputStyle, width: 180 }} value={form.next_action_date}
+                onChange={e => handleChange('next_action_date', e.target.value)} />
             </div>
+
             <div>
-              <label className="form-label">メモ</label>
-              <textarea
-                className="form-input"
-                rows={3}
-                value={form.memo}
+              <label style={labelStyle}>メモ</label>
+              <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.memo}
                 onChange={e => handleChange('memo', e.target.value)}
-                placeholder="連絡履歴・備考など"
-              />
+                placeholder="連絡履歴・備考など" />
             </div>
           </div>
-        </section>
 
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ background: '#06b6d4' }}
-          >
-            {saving ? '保存中...' : isEdit ? '更新する' : '登録する'}
-          </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>
-            キャンセル
-          </button>
-        </div>
-      </form>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn kind="primary" style={{ opacity: saving ? 0.6 : 1 }}>
+              {saving ? '保存中...' : isEdit ? '更新する' : '登録する'}
+            </Btn>
+            <Btn kind="ghost" type="button" onClick={() => navigate(-1)}>キャンセル</Btn>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

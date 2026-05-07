@@ -2,7 +2,12 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { deleteById } from '../api/sheets'
-import { ContactStatusBadge } from '../components/StatusBadge'
+import { T } from '../constants/theme'
+import { Icon } from '../components/Icons'
+import TopBar from '../components/TopBar'
+import PageHeader from '../components/PageHeader'
+import Btn from '../components/Btn'
+import Badge, { contactStatusTone } from '../components/Badge'
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -13,14 +18,23 @@ function formatDate(dateStr) {
 const SH_TYPES = ['会員企業', '教育機関', '行政', '求職者', 'その他']
 const CONTACT_STATUSES = ['未連絡', '連絡中', '送付済', '回答済']
 
+const th = { padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.04em', textTransform: 'uppercase' }
+const td = { padding: '12px 18px', fontSize: 13, color: T.ink, verticalAlign: 'middle' }
+
+const inputStyle = {
+  fontSize: 13, fontFamily: 'inherit', color: T.ink,
+  border: `1px solid ${T.border}`, borderRadius: 6,
+  padding: '7px 10px', background: T.surface, outline: 'none',
+}
+
 export default function StakeholderList() {
   const navigate = useNavigate()
   const { rows: stakeholders, loading, reload } = useSheets('stakeholders')
 
-  const [filterType, setFilterType] = useState('')
+  const [filterType,   setFilterType  ] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [searchText, setSearchText] = useState('')
-  const [expandedId, setExpandedId] = useState(null)
+  const [searchText,   setSearchText  ] = useState('')
+  const [expandedId,   setExpandedId  ] = useState(null)
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -41,75 +55,64 @@ export default function StakeholderList() {
     }
   }
 
+  const hasFilter = filterType || filterStatus || searchText
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800">ステークホルダー一覧</h1>
-        <button
-          className="px-4 py-2 rounded text-sm font-semibold text-gray-900 hover:opacity-90 transition-opacity flex items-center gap-1.5"
-          style={{ background: '#06b6d4' }}
-          onClick={() => navigate('/stakeholders/new')}
-        >
-          <span className="text-lg leading-none">+</span>新規登録
-        </button>
-      </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
+      <TopBar><span>ステークホルダー</span></TopBar>
 
-      {/* フィルター */}
-      <div className="bg-white rounded-lg border border-gray-100 p-4 mb-5 flex gap-3 flex-wrap">
-        <input
-          type="text"
-          placeholder="名称・担当者名で検索..."
-          className="form-input max-w-xs"
-          value={searchText}
-          onChange={e => setSearchText(e.target.value)}
+      <div style={{ padding: '24px 28px', flex: 1 }}>
+        <PageHeader
+          title="ステークホルダー一覧"
+          subtitle="大学・企業・行政など、事業に関わるステークホルダーの連絡状況と次アクションを管理します。"
+          actions={
+            <Btn kind="primary" icon={Icon.plus()} onClick={() => navigate('/stakeholders/new')}>
+              新規登録
+            </Btn>
+          }
         />
-        <select
-          className="form-select w-36"
-          value={filterType}
-          onChange={e => setFilterType(e.target.value)}
-        >
-          <option value="">すべての種別</option>
-          {SH_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select
-          className="form-select w-36"
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-        >
-          <option value="">すべての連絡状況</option>
-          {CONTACT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        {(filterType || filterStatus || searchText) && (
-          <button
-            className="text-sm text-gray-500 hover:text-gray-700 underline"
-            onClick={() => { setFilterType(''); setFilterStatus(''); setSearchText('') }}
-          >
-            クリア
-          </button>
-        )}
-      </div>
 
-      <p className="text-xs text-gray-400 mb-4">{filtered.length}件 / {stakeholders.length}件</p>
+        {/* フィルターカード */}
+        <div style={{ background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, padding: '14px 18px', marginBottom: 18, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }}>
+          <input type="text" placeholder="名称・担当者名で検索..."
+            value={searchText} onChange={e => setSearchText(e.target.value)}
+            style={{ ...inputStyle, width: 220 }} />
+          <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ ...inputStyle, width: 140 }}>
+            <option value="">すべての種別</option>
+            {SH_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: 150 }}>
+            <option value="">すべての連絡状況</option>
+            {CONTACT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          {hasFilter && (
+            <button onClick={() => { setFilterType(''); setFilterStatus(''); setSearchText('') }}
+              style={{ fontSize: 12, color: T.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              クリア
+            </button>
+          )}
+          <span style={{ fontSize: 11, color: T.muted, marginLeft: 'auto' }}>{filtered.length}件 / {stakeholders.length}件</span>
+        </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>
-      ) : (
-        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
-          {filtered.length === 0 ? (
-            <p className="text-center py-12 text-gray-400 text-sm">
-              {stakeholders.length === 0 ? 'ステークホルダーが未登録です' : '条件に一致するデータがありません'}
-            </p>
-          ) : (
-            <table className="w-full text-sm">
+        {/* テーブル */}
+        {loading ? (
+          <div style={{ textAlign: 'center', color: T.muted, padding: '60px 0', fontSize: 13 }}>読み込み中...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', color: T.muted, padding: '60px 0', fontSize: 13 }}>
+            {stakeholders.length === 0 ? 'ステークホルダーが未登録です' : '条件に一致するデータがありません'}
+          </div>
+        ) : (
+          <div style={{ background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: '#0f1c2e' }} className="text-white text-xs">
-                  <th className="text-left px-4 py-2.5">名称</th>
-                  <th className="text-left px-4 py-2.5">種別</th>
-                  <th className="text-left px-4 py-2.5">担当者</th>
-                  <th className="text-left px-4 py-2.5">連絡状況</th>
-                  <th className="text-left px-4 py-2.5">次アクション</th>
-                  <th className="text-left px-4 py-2.5">期限</th>
-                  <th className="px-4 py-2.5"></th>
+                <tr style={{ background: T.surfaceAlt, borderBottom: `1px solid ${T.borderSoft}` }}>
+                  <th style={th}>名称</th>
+                  <th style={{ ...th, width: 100 }}>種別</th>
+                  <th style={{ ...th, width: 110 }}>担当者</th>
+                  <th style={{ ...th, width: 100 }}>連絡状況</th>
+                  <th style={{ ...th, width: 200 }}>次アクション</th>
+                  <th style={{ ...th, width: 100 }}>期限</th>
+                  <th style={{ ...th, width: 100 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -118,72 +121,51 @@ export default function StakeholderList() {
                   const isExpanded = expandedId === s.id
                   return (
                     <>
-                      <tr
-                        key={s.id}
-                        className={`border-b border-gray-50 hover:bg-gray-50/50 cursor-pointer ${isActionOverdue ? 'bg-red-50' : ''}`}
-                        onClick={() => setExpandedId(isExpanded ? null : s.id)}
-                      >
-                        <td className="px-4 py-2.5 font-medium">{s.name}</td>
-                        <td className="px-4 py-2.5 text-xs text-gray-500">{s.type || '—'}</td>
-                        <td className="px-4 py-2.5 text-xs">{s.contact_name || '—'}</td>
-                        <td className="px-4 py-2.5">
-                          <ContactStatusBadge status={s.contact_status} />
+                      <tr key={s.id}
+                        style={{ borderTop: `1px solid ${T.borderSoft}`, background: isActionOverdue ? T.dangerBg : 'transparent', cursor: 'pointer' }}
+                        onClick={() => setExpandedId(isExpanded ? null : s.id)}>
+                        <td style={{ ...td, fontWeight: 600 }}>{s.name}</td>
+                        <td style={{ ...td, fontSize: 12, color: T.inkSoft }}>{s.type || '—'}</td>
+                        <td style={{ ...td, fontSize: 12 }}>{s.contact_name || '—'}</td>
+                        <td style={td}>
+                          <Badge tone={contactStatusTone(s.contact_status)} size="xs">{s.contact_status || '未連絡'}</Badge>
                         </td>
-                        <td className="px-4 py-2.5 text-xs text-gray-600 max-w-[160px] truncate" title={s.next_action}>
+                        <td style={{ ...td, fontSize: 12, color: T.inkSoft, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.next_action}>
                           {s.next_action || '—'}
                         </td>
-                        <td className={`px-4 py-2.5 text-xs font-mono ${isActionOverdue ? 'text-red-600 font-bold' : ''}`}>
+                        <td style={{ ...td, fontSize: 12, fontVariantNumeric: 'tabular-nums', color: isActionOverdue ? T.danger : T.ink, fontWeight: isActionOverdue ? 700 : 400 }}>
                           {formatDate(s.next_action_date)}
                         </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <div className="flex items-center gap-2 justify-end">
-                            <button
-                              className="text-xs text-blue-500 hover:underline"
-                              onClick={e => { e.stopPropagation(); navigate(`/stakeholders/${s.id}/edit`) }}
-                            >
+                        <td style={td}>
+                          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                            <button onClick={e => { e.stopPropagation(); navigate(`/stakeholders/${s.id}/edit`) }}
+                              style={{ fontSize: 12, color: T.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
                               編集
                             </button>
-                            <button
-                              className="text-xs text-red-400 hover:underline"
-                              onClick={e => { e.stopPropagation(); handleDelete(s) }}
-                            >
+                            <button onClick={e => { e.stopPropagation(); handleDelete(s) }}
+                              style={{ fontSize: 12, color: T.danger, background: 'none', border: 'none', cursor: 'pointer' }}>
                               削除
                             </button>
                           </div>
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr key={`${s.id}-detail`} className="bg-gray-50">
-                          <td colSpan={7} className="px-6 py-3">
-                            <div className="grid grid-cols-3 gap-4 text-xs">
-                              <div>
-                                <span className="text-gray-400">所属:</span>{' '}
-                                <span>{s.department || '—'}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400">役職:</span>{' '}
-                                <span>{s.position || '—'}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400">機関種別:</span>{' '}
-                                <span>{s.institution_type || '—'}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400">メール:</span>{' '}
-                                <span>{s.email || '—'}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400">電話:</span>{' '}
-                                <span>{s.phone || '—'}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400">住所:</span>{' '}
-                                <span>{s.address || '—'}</span>
-                              </div>
+                        <tr key={`${s.id}-detail`}>
+                          <td colSpan={7} style={{ padding: '12px 24px 16px', background: T.surfaceAlt, borderTop: `1px solid ${T.borderSoft}` }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 24px' }}>
+                              {[
+                                ['所属', s.department], ['役職', s.position], ['機関種別', s.institution_type],
+                                ['メール', s.email], ['電話', s.phone], ['住所', s.address],
+                              ].map(([label, val]) => (
+                                <div key={label} style={{ fontSize: 12 }}>
+                                  <span style={{ color: T.muted }}>{label}: </span>
+                                  <span style={{ color: T.ink }}>{val || '—'}</span>
+                                </div>
+                              ))}
                               {s.memo && (
-                                <div className="col-span-3">
-                                  <span className="text-gray-400">メモ:</span>{' '}
-                                  <span className="whitespace-pre-wrap">{s.memo}</span>
+                                <div style={{ fontSize: 12, gridColumn: '1 / -1' }}>
+                                  <span style={{ color: T.muted }}>メモ: </span>
+                                  <span style={{ color: T.ink, whiteSpace: 'pre-wrap' }}>{s.memo}</span>
                                 </div>
                               )}
                             </div>
@@ -195,9 +177,9 @@ export default function StakeholderList() {
                 })}
               </tbody>
             </table>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

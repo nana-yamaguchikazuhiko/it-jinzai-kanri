@@ -1,14 +1,19 @@
 import { useState, useMemo } from 'react'
 import { useSheets } from '../hooks/useSheets'
 import { updateById } from '../api/sheets'
+import { T } from '../constants/theme'
+import TopBar from '../components/TopBar'
+import PageHeader from '../components/PageHeader'
+import Btn from '../components/Btn'
+import Badge from '../components/Badge'
 
 const STATUSES = ['未対応', '対応中', '完了', '対応不要']
 
-const STATUS_STYLE = {
-  '未対応':  { bg: '#fee2e2', color: '#dc2626' },
-  '対応中':  { bg: '#fef9c3', color: '#ca8a04' },
-  '完了':    { bg: '#dcfce7', color: '#16a34a' },
-  '対応不要': { bg: '#f1f5f9', color: '#64748b' },
+const STATUS_TONE = {
+  '未対応':  'danger',
+  '対応中':  'warning',
+  '完了':    'success',
+  '対応不要': 'neutral',
 }
 
 function formatDate(dateStr) {
@@ -29,14 +34,23 @@ function parseSenderEmail(raw) {
   return m ? m[1] : raw
 }
 
+const th = { padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }
+const td = { padding: '12px 18px', fontSize: 13, color: T.ink, verticalAlign: 'middle' }
+
+const inputStyle = {
+  fontSize: 13, fontFamily: 'inherit', color: T.ink,
+  border: `1px solid ${T.border}`, borderRadius: 6,
+  padding: '7px 10px', background: T.surface, outline: 'none',
+}
+
 export default function MailList() {
   const { rows: mails, loading, error, reload } = useSheets('mails')
 
   const [filterStatus, setFilterStatus] = useState('')
-  const [searchText, setSearchText]     = useState('')
-  const [editingId, setEditingId]       = useState(null)
-  const [editForm, setEditForm]         = useState({ status: '', memo: '' })
-  const [saving, setSaving]             = useState(false)
+  const [searchText,   setSearchText  ] = useState('')
+  const [editingId,    setEditingId   ] = useState(null)
+  const [editForm,     setEditForm    ] = useState({ status: '', memo: '' })
+  const [saving,       setSaving      ] = useState(false)
 
   const sorted = useMemo(() =>
     [...mails].sort((a, b) => (b.received_at || '').localeCompare(a.received_at || '')),
@@ -75,133 +89,145 @@ export default function MailList() {
   }
 
   if (error) return (
-    <div className="p-6">
-      <div className="bg-red-50 border border-red-200 text-red-700 rounded p-4 text-sm">データ取得エラー: {error}</div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
+      <TopBar><span>問い合わせ管理</span></TopBar>
+      <div style={{ padding: '24px 28px' }}>
+        <div style={{ background: T.dangerBg, border: `1px solid ${T.danger}`, color: T.dangerText, borderRadius: 8, padding: '12px 16px', fontSize: 13 }}>
+          データ取得エラー: {error}
+        </div>
+      </div>
     </div>
   )
 
   return (
-    <div className="p-6">
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800">問い合わせ管理</h1>
-        <button onClick={reload}
-          style={{ fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', cursor: 'pointer' }}>
-          ↻ 更新
-        </button>
-      </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
+      <TopBar><span>問い合わせ管理</span></TopBar>
 
-      {/* サマリーバッジ */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        {STATUSES.map(s => {
-          const st = STATUS_STYLE[s]
-          return (
+      <div style={{ padding: '24px 28px', flex: 1 }}>
+        <PageHeader
+          title="問い合わせ管理"
+          subtitle="GASで同期されたメールの対応状況を管理します。"
+          actions={
+            <button onClick={reload}
+              style={{ fontSize: 12, padding: '6px 14px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.inkSoft, cursor: 'pointer', fontFamily: 'inherit' }}>
+              ↻ 更新
+            </button>
+          }
+        />
+
+        {/* ステータスバッジ */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          {STATUSES.map(s => (
             <button key={s} onClick={() => setFilterStatus(filterStatus === s ? '' : s)}
               style={{
-                padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                background: filterStatus === s ? st.color : st.bg,
-                color: filterStatus === s ? '#fff' : st.color,
-                border: `1px solid ${st.color}33`,
+                padding: '6px 16px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                background: filterStatus === s ? T.teal : T.surfaceAlt,
+                color: filterStatus === s ? '#fff' : T.inkSoft,
+                border: `1px solid ${filterStatus === s ? T.teal : T.border}`,
               }}>
               {s} {counts[s]}
             </button>
-          )
-        })}
-      </div>
+          ))}
+        </div>
 
-      {/* 検索 */}
-      <div className="bg-white rounded-lg border border-gray-100 p-3 mb-5 flex gap-3 items-center">
-        <input type="text" placeholder="差出人・件名で検索..." className="form-input max-w-sm"
-          value={searchText} onChange={e => setSearchText(e.target.value)} />
-        {(filterStatus || searchText) && (
-          <button className="text-sm text-gray-400 hover:text-gray-600 underline"
-            onClick={() => { setFilterStatus(''); setSearchText('') }}>クリア</button>
+        {/* 検索 */}
+        <div style={{ background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, padding: '12px 18px', marginBottom: 18, display: 'flex', gap: 12, alignItems: 'center', boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }}>
+          <input type="text" placeholder="差出人・件名で検索..." value={searchText}
+            onChange={e => setSearchText(e.target.value)} style={{ ...inputStyle, width: 280 }} />
+          {(filterStatus || searchText) && (
+            <button onClick={() => { setFilterStatus(''); setSearchText('') }}
+              style={{ fontSize: 12, color: T.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              クリア
+            </button>
+          )}
+          <span style={{ fontSize: 11, color: T.muted, marginLeft: 'auto' }}>{filtered.length}件 / {mails.length}件</span>
+        </div>
+
+        {/* テーブル */}
+        {loading ? (
+          <div style={{ textAlign: 'center', color: T.muted, padding: '60px 0', fontSize: 13 }}>読み込み中...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', color: T.muted, padding: '60px 0', fontSize: 13 }}>
+            {mails.length === 0 ? 'メールが同期されていません（GASの設定を確認してください）' : '条件に一致するメールがありません'}
+          </div>
+        ) : (
+          <div style={{ background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: T.surfaceAlt, borderBottom: `1px solid ${T.borderSoft}` }}>
+                  <th style={{ ...th, width: 140 }}>受信日時</th>
+                  <th style={{ ...th, width: 180 }}>差出人</th>
+                  <th style={th}>件名</th>
+                  <th style={{ ...th, width: 100 }}>ステータス</th>
+                  <th style={{ ...th, width: 180 }}>メモ</th>
+                  <th style={{ ...th, width: 60 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(mail => {
+                  const isEditing = editingId === mail.id
+                  const senderName  = parseSenderName(mail.sender_name || mail.sender_email)
+                  const senderEmail = parseSenderEmail(mail.sender_email)
+
+                  return (
+                    <tr key={mail.id} style={{ borderTop: `1px solid ${T.borderSoft}`, background: isEditing ? T.tealBg : 'transparent' }}>
+                      <td style={{ ...td, fontSize: 12, color: T.inkSoft, whiteSpace: 'nowrap' }}>
+                        {formatDate(mail.received_at)}
+                      </td>
+                      <td style={{ ...td, minWidth: 160 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{senderName}</div>
+                        <div style={{ fontSize: 11, color: T.muted }}>{senderEmail}</div>
+                      </td>
+                      <td style={{ ...td, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {mail.subject || '（件名なし）'}
+                      </td>
+
+                      {isEditing ? (
+                        <>
+                          <td style={{ padding: '10px 16px' }}>
+                            <select value={editForm.status}
+                              onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}
+                              style={{ fontSize: 12, fontFamily: 'inherit', color: T.ink, border: `1px solid ${T.border}`, borderRadius: 6, padding: '4px 8px', background: T.surface, outline: 'none', width: 90 }}>
+                              {STATUSES.map(s => <option key={s}>{s}</option>)}
+                            </select>
+                          </td>
+                          <td style={{ padding: '10px 16px' }}>
+                            <input type="text" placeholder="メモ..." value={editForm.memo}
+                              onChange={e => setEditForm(p => ({ ...p, memo: e.target.value }))}
+                              style={{ fontSize: 12, fontFamily: 'inherit', color: T.ink, border: `1px solid ${T.border}`, borderRadius: 6, padding: '4px 8px', background: T.surface, outline: 'none', width: '100%' }} />
+                          </td>
+                          <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <Btn kind="primary" size="sm" onClick={() => handleSave(mail)} style={{ opacity: saving ? 0.6 : 1 }}>保存</Btn>
+                              <button onClick={() => setEditingId(null)}
+                                style={{ fontSize: 16, color: T.muted, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={td}>
+                            <Badge tone={STATUS_TONE[mail.status] || 'neutral'} size="xs">{mail.status || '未対応'}</Badge>
+                          </td>
+                          <td style={{ ...td, fontSize: 12, color: T.inkSoft, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {mail.memo || <span style={{ color: T.faint }}>—</span>}
+                          </td>
+                          <td style={td}>
+                            <button onClick={() => startEdit(mail)}
+                              style={{ fontSize: 12, color: T.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                              編集
+                            </button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-        <span className="text-xs text-gray-400 ml-auto">{filtered.length}件 / {mails.length}件</span>
       </div>
-
-      {/* テーブル */}
-      {loading ? (
-        <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-gray-400 text-sm">
-          {mails.length === 0 ? 'メールが同期されていません（GASの設定を確認してください）' : '条件に一致するメールがありません'}
-        </div>
-      ) : (
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e8edf2', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#fafbfc' }}>
-                {['受信日時', '差出人', '件名', 'ステータス', 'メモ', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '11px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(mail => {
-                const isEditing = editingId === mail.id
-                const st = STATUS_STYLE[mail.status] || STATUS_STYLE['未対応']
-                const senderName  = parseSenderName(mail.sender_name || mail.sender_email)
-                const senderEmail = parseSenderEmail(mail.sender_email)
-
-                return (
-                  <tr key={mail.id} style={{ borderTop: '1px solid #f8fafc', background: isEditing ? '#f0fdf4' : 'transparent' }}>
-                    <td style={{ padding: '12px 20px', fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
-                      {formatDate(mail.received_at)}
-                    </td>
-                    <td style={{ padding: '12px 20px', minWidth: 160 }}>
-                      <div style={{ fontSize: 13, color: '#1e2d3d', fontWeight: 500 }}>{senderName}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>{senderEmail}</div>
-                    </td>
-                    <td style={{ padding: '12px 20px', fontSize: 13, color: '#1e2d3d', maxWidth: 320 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mail.subject || '（件名なし）'}</div>
-                    </td>
-
-                    {isEditing ? (
-                      <>
-                        <td style={{ padding: '10px 16px' }}>
-                          <select className="form-select text-xs py-1 w-28"
-                            value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}>
-                            {STATUSES.map(s => <option key={s}>{s}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ padding: '10px 16px' }}>
-                          <input type="text" className="form-input text-xs py-1"
-                            placeholder="メモ..."
-                            value={editForm.memo} onChange={e => setEditForm(p => ({ ...p, memo: e.target.value }))} />
-                        </td>
-                        <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
-                          <button style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, background: '#06b6d4', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, marginRight: 8 }}
-                            onClick={() => handleSave(mail)} disabled={saving}>保存</button>
-                          <button style={{ fontSize: 11, color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}
-                            onClick={() => setEditingId(null)}>✕</button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td style={{ padding: '12px 20px' }}>
-                          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: st.bg, color: st.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                            {mail.status || '未対応'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 20px', fontSize: 12, color: '#64748b', maxWidth: 200 }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {mail.memo || <span style={{ color: '#d1d5db' }}>—</span>}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 20px' }}>
-                          <button style={{ fontSize: 11, color: '#06b6d4', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
-                            onClick={() => startEdit(mail)}>編集</button>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   )
 }
