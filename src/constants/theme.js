@@ -27,5 +27,6 @@ export const T = {
   catA:        '#26b99a',  catABg:     '#e8f4f1',  // 企業向け支援活動
   catB:        '#9b7cb6',  catBBg:     '#f0ebf6',  // 学生向け啓蒙活動
   catC:        '#5e9cd1',  catCBg:     '#eaf2fa',  // 教育機関との連携活動
-  catD:        '#e8a87c',  catDBg:     '#fbf0e7',  // 採用支援
+  catD:        '#e8a87c',  catDBg:     '#fbf0e7',  // マッチング活動
+  catE:        '#6b7b8d',  catEBg:     '#edf0f3',  // 分類なし
 }

@@ -11,6 +11,7 @@ const TONES = {
   catB:    { bg: T.catBBg, fg: '#7a5e94', dotC: T.catB },
   catC:    { bg: T.catCBg, fg: '#3a6f9c', dotC: T.catC },
   catD:    { bg: T.catDBg, fg: '#b97a1d', dotC: T.catD },
+  catE:    { bg: T.catEBg, fg: '#4a5f6e', dotC: T.catE },
 }
 const SIZES = {
   xs: { fs: 10, py: 2, px: 6 },
