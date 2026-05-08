@@ -548,16 +548,16 @@ function TimelineHubView({ filtered, tasks, childMap, calcProgress, navigate }) 
         const catKey     = getEventCatKey(ev.small_cat)
         const catDef     = CAT_DEFS[catKey]
         const path       = [ev.big_cat, ev.mid_cat, ev.small_cat].filter(Boolean).join(' › ')
-        const rowH       = Math.max(56, (isParentEv ? children.length : 1) * 24 + 24)
+        const rowH       = Math.max(76, (isParentEv ? children.length : 1) * 24 + 32)
 
         return (
           <div key={ev.id} style={{
             display: 'grid', gridTemplateColumns: '300px 1fr 130px',
             borderTop: i > 0 ? `1px solid ${T.borderSoft}` : 'none',
-            height: rowH,
+            minHeight: rowH,
           }}>
             {/* 左: イベント情報 */}
-            <div style={{ padding: '10px 14px', borderRight: `1px solid ${T.border}`, display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', overflow: 'hidden' }}
+            <div style={{ padding: '10px 14px', borderRight: `1px solid ${T.border}`, display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}
               onClick={() => navigate(`/events/${ev.id}`)}>
               <CategoryChip cat={catKey} size="sm" />
               <div style={{ flex: 1, minWidth: 0 }}>
