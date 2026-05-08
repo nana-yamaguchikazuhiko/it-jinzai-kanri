@@ -24,9 +24,9 @@ export const T = {
   danger:      '#d9534f',  dangerBg:   '#fbeaea',  dangerText:  '#a73b38',
   info:        '#5e9cd1',  infoBg:     '#eaf2fa',  infoText:    '#3a6f9c',
 
-  catA:        '#26b99a',  catABg:     '#e8f4f1',  // 企業向け支援活動
-  catB:        '#9b7cb6',  catBBg:     '#f0ebf6',  // 学生向け啓蒙活動
-  catC:        '#5e9cd1',  catCBg:     '#eaf2fa',  // 教育機関との連携活動
-  catD:        '#e8a87c',  catDBg:     '#fbf0e7',  // マッチング活動
-  catE:        '#6b7b8d',  catEBg:     '#edf0f3',  // 分類なし
+  catA:        '#1d9e85',  catABg:     '#d0ece5',  // 企業向け支援活動
+  catB:        '#7d5ea6',  catBBg:     '#e6dcf4',  // 学生向け啓蒙活動
+  catC:        '#3a82c0',  catCBg:     '#d6e8f8',  // 教育機関との連携活動
+  catD:        '#c97840',  catDBg:     '#f5e0cb',  // マッチング活動
+  catE:        '#506070',  catEBg:     '#dfe4ea',  // 分類なし
 }
