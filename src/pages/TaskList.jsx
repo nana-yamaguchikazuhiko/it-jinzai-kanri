@@ -43,7 +43,7 @@ export default function TaskList() {
     return d.toISOString().split('T')[0]
   })()
 
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterStatus, setFilterStatus] = useState('__not_done__')
   const [filterEvent,  setFilterEvent ] = useState('')
   const [filterOverdue, setFilterOverdue] = useState(false)
 
@@ -65,7 +65,8 @@ export default function TaskList() {
   [tasks, eventMap, today, in3Days])
 
   const filtered = useMemo(() => tasksWithStatus.filter(t => {
-    if (filterStatus && t.status !== filterStatus) return false
+    if (filterStatus === '__not_done__' && t.status === '完了') return false
+    if (filterStatus && filterStatus !== '__not_done__' && t.status !== filterStatus) return false
     if (filterEvent && t.event_id !== filterEvent) return false
     if (filterOverdue && !t._isOverdue) return false
     return true
@@ -92,7 +93,7 @@ export default function TaskList() {
 
   const overdueCount = tasksWithStatus.filter(t => t._isOverdue).length
   const soonCount    = tasksWithStatus.filter(t => t._isSoon).length
-  const hasFilter    = filterStatus || filterEvent || filterOverdue
+  const hasFilter    = filterStatus !== '__not_done__' || filterEvent || filterOverdue
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
@@ -129,6 +130,7 @@ export default function TaskList() {
         <div style={{ background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, padding: '14px 18px', marginBottom: 18, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }}>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...selectStyle, width: 140 }}>
             <option value="">すべての状態</option>
+            <option value="__not_done__">完了以外</option>
             {TASK_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select value={filterEvent} onChange={e => setFilterEvent(e.target.value)} style={{ ...selectStyle, maxWidth: 280 }}>
@@ -136,7 +138,7 @@ export default function TaskList() {
             {events.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
           {hasFilter && (
-            <button onClick={() => { setFilterStatus(''); setFilterEvent(''); setFilterOverdue(false) }}
+            <button onClick={() => { setFilterStatus('__not_done__'); setFilterEvent(''); setFilterOverdue(false) }}
               style={{ fontSize: 12, color: T.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
               クリア
             </button>
