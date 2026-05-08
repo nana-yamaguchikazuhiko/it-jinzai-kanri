@@ -43,12 +43,10 @@ export default function BudgetManagement() {
       ...CATEGORIES.flatMap(big => big.mid.flatMap(mid => mid.small.map(s => s.name))),
       ...STANDALONE_SMALL_CATS,
     ]
-    // CATEGORIESの順序でeventsに存在するもの
-    const catMatched = ordered.filter(name => hasEvent.has(name))
-    const catMatchedSet = new Set(catMatched)
-    // eventsにはあるがCATEGORIESに載っていない名前（旧名称など）を末尾に追加
-    const extras = [...hasEvent].filter(name => !catMatchedSet.has(name))
-    return [...catMatched, ...extras]
+    const orderedSet = new Set(ordered)
+    // マスタ全項目 + eventsにのみ存在する名前（旧名称など）を末尾に追加
+    const extras = [...hasEvent].filter(name => !orderedSet.has(name))
+    return [...ordered, ...extras]
   }, [events])
 
   const [activeTab, setActiveTab] = useState('_summary')
