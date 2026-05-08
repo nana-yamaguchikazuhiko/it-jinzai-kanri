@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useSheets } from '../hooks/useSheets'
-import { appendRow, generateId } from '../api/sheets'
+import { appendRow, updateById, deleteById, generateId } from '../api/sheets'
 import { T } from '../constants/theme'
 import { Icon } from '../components/Icons'
 import TopBar from '../components/TopBar'
@@ -42,8 +42,10 @@ export default function FieldNote() {
 
   const [activeTab,  setActiveTab ] = useState('all')
   const [showForm,   setShowForm  ] = useState(false)
+  const [editingId,  setEditingId ] = useState(null)   // null = 新規, string = 編集中ノートid
   const [form,       setForm      ] = useState(EMPTY_FORM)
   const [saving,     setSaving    ] = useState(false)
+  const [deleting,   setDeleting  ] = useState(null)   // 削除中ノートid
   const [expandedId, setExpandedId] = useState(null)
 
   const shById = useMemo(() =>
@@ -64,6 +66,34 @@ export default function FieldNote() {
 
   const countOf = (cat) => notes.filter(n => n.category === cat).length
 
+  const openNewForm = () => {
+    setEditingId(null)
+    setForm(EMPTY_FORM)
+    setShowForm(true)
+  }
+
+  const openEditForm = (note, e) => {
+    e.stopPropagation()
+    setEditingId(note.id)
+    setForm({
+      date:           note.date           || '',
+      category:       note.category       || '',
+      stakeholder_id: note.stakeholder_id || '',
+      source:         note.source         || '',
+      title:          note.title          || '',
+      content:        note.content        || '',
+      tags:           note.tags           || '',
+    })
+    setShowForm(true)
+    setExpandedId(null)
+  }
+
+  const closeForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setForm(EMPTY_FORM)
+  }
+
   const handleSave = async () => {
     if (!form.title || !form.category || !form.date) {
       alert('日付・カテゴリ・タイトルは必須です')
@@ -71,16 +101,36 @@ export default function FieldNote() {
     }
     setSaving(true)
     try {
-      await appendRow('field_notes', [
-        generateId(), form.date, form.category, form.stakeholder_id,
-        form.source, form.title, form.content, form.tags,
-        new Date().toISOString(),
-      ])
+      if (editingId) {
+        await updateById('field_notes', editingId, {
+          id: editingId,
+          date: form.date, category: form.category,
+          stakeholder_id: form.stakeholder_id, source: form.source,
+          title: form.title, content: form.content, tags: form.tags,
+        })
+      } else {
+        await appendRow('field_notes', [
+          generateId(), form.date, form.category, form.stakeholder_id,
+          form.source, form.title, form.content, form.tags,
+          new Date().toISOString(),
+        ])
+      }
       await reload()
-      setForm(EMPTY_FORM)
-      setShowForm(false)
+      closeForm()
     } catch (e) { alert('保存失敗: ' + e.message) }
     finally { setSaving(false) }
+  }
+
+  const handleDelete = async (note, e) => {
+    e.stopPropagation()
+    if (!window.confirm(`「${note.title}」を削除しますか？この操作は取り消せません。`)) return
+    setDeleting(note.id)
+    try {
+      await deleteById('field_notes', note.id)
+      await reload()
+      if (expandedId === note.id) setExpandedId(null)
+    } catch (err) { alert('削除失敗: ' + err.message) }
+    finally { setDeleting(null) }
   }
 
   const inputStyle = {
@@ -91,6 +141,23 @@ export default function FieldNote() {
 
   const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: T.inkSoft, marginBottom: 6 }
 
+  const iconBtn = (onClick, title, children, danger) => (
+    <button
+      title={title}
+      onClick={onClick}
+      style={{
+        width: 28, height: 28, borderRadius: 4, border: 'none', cursor: 'pointer',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: 'transparent', color: danger ? T.danger : T.muted,
+        flexShrink: 0,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = danger ? T.dangerBg : T.surfaceAlt }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >
+      {children}
+    </button>
+  )
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg }}>
       <TopBar><span>フィールドノート</span></TopBar>
@@ -100,16 +167,18 @@ export default function FieldNote() {
           title="フィールドノート"
           subtitle="採用・就職に関する情報を得たときは、こちらのノートに集約していきましょう。大学・企業・行政などあらゆる現場からの声を記録・蓄積することで、事業の分析や戦略立案に活かせます。"
           actions={
-            <Btn kind="primary" icon={Icon.plus()} onClick={() => setShowForm(v => !v)}>
+            <Btn kind="primary" icon={Icon.plus()} onClick={openNewForm}>
               新規記録
             </Btn>
           }
         />
 
-        {/* 入力フォーム */}
+        {/* 入力・編集フォーム */}
         {showForm && (
           <div style={{ background: T.surface, border: `1px solid ${T.teal}`, borderRadius: 4, padding: '20px 22px', marginBottom: 20, boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 16 }}>新規フィールドノート</h2>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 16 }}>
+              {editingId ? 'フィールドノートを編集' : '新規フィールドノート'}
+            </h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
@@ -180,11 +249,9 @@ export default function FieldNote() {
 
             <div style={{ display: 'flex', gap: 8 }}>
               <Btn kind="primary" onClick={handleSave} style={{ opacity: saving ? 0.6 : 1 }}>
-                {saving ? '保存中...' : '保存'}
+                {saving ? '保存中...' : (editingId ? '更新' : '保存')}
               </Btn>
-              <Btn kind="ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM) }}>
-                キャンセル
-              </Btn>
+              <Btn kind="ghost" onClick={closeForm}>キャンセル</Btn>
             </div>
           </div>
         )}
@@ -242,14 +309,15 @@ export default function FieldNote() {
               const sh     = shById[n.stakeholder_id]
               const isOpen = expandedId === n.id
               const tags   = n.tags ? n.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+              const isDel  = deleting === n.id
 
               return (
                 <div key={n.id}
-                  style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 1px 0 rgba(0,0,0,0.02)' }}
+                  style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 1px 0 rgba(0,0,0,0.02)', opacity: isDel ? 0.5 : 1 }}
                   onClick={() => setExpandedId(isOpen ? null : n.id)}>
 
                   <div style={{ padding: '14px 18px' }}>
-                    {/* 1行目: バッジ・タイトル・日付 */}
+                    {/* 1行目: バッジ・タイトル・日付・アクション */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
                       <span style={{
                         fontSize: 10, padding: '3px 9px', borderRadius: 999,
@@ -264,6 +332,22 @@ export default function FieldNote() {
                       <span style={{ fontSize: 11, color: T.muted, whiteSpace: 'nowrap', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                         {formatDate(n.date)}
                       </span>
+                      {/* 編集・削除ボタン */}
+                      <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        {iconBtn(e => openEditForm(n, e), '編集',
+                          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        )}
+                        {iconBtn(e => handleDelete(n, e), '削除',
+                          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                          </svg>,
+                          true
+                        )}
+                      </div>
                     </div>
 
                     {/* SH・情報源 */}
