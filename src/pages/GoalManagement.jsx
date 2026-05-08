@@ -181,20 +181,21 @@ export default function GoalManagement() {
               <thead>
                 <tr style={{ background: T.surfaceAlt }}>
                   <th style={{ ...th, paddingLeft: 22 }}>小分類</th>
-                  <th style={{ ...th, textAlign: 'center', borderLeft: `1px solid ${T.borderSoft}` }} colSpan={3}>開催回数</th>
-                  <th style={{ ...th, textAlign: 'center', borderLeft: `1px solid ${T.borderSoft}` }} colSpan={2}>学生参加</th>
-                  <th style={{ ...th, textAlign: 'center', borderLeft: `1px solid ${T.borderSoft}` }} colSpan={2}>企業参加</th>
+                  <th style={{ ...th, textAlign: 'center', borderLeft: `1px solid ${T.borderSoft}` }} colSpan={2}>開催回数</th>
+                  <th style={{ ...th, textAlign: 'center', borderLeft: `1px solid ${T.borderSoft}` }} colSpan={3}>学生参加</th>
+                  <th style={{ ...th, textAlign: 'center', borderLeft: `1px solid ${T.borderSoft}` }} colSpan={3}>企業参加</th>
                   <th style={{ ...th, textAlign: 'right', paddingRight: 22 }}></th>
                 </tr>
                 <tr style={{ background: T.surfaceAlt, borderTop: `1px solid ${T.borderSoft}` }}>
                   <th style={{ ...th, paddingLeft: 22 }}></th>
                   <th style={{ ...th, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}` }}>目標</th>
                   <th style={{ ...th, textAlign: 'right' }}>実績</th>
+                  <th style={{ ...th, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}` }}>目標</th>
+                  <th style={{ ...th, textAlign: 'right' }}>実績</th>
                   <th style={{ ...th, textAlign: 'right' }}>達成率</th>
                   <th style={{ ...th, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}` }}>目標</th>
                   <th style={{ ...th, textAlign: 'right' }}>実績</th>
-                  <th style={{ ...th, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}` }}>目標</th>
-                  <th style={{ ...th, textAlign: 'right' }}>実績</th>
+                  <th style={{ ...th, textAlign: 'right' }}>達成率</th>
                   <th style={{ ...th, textAlign: 'right', paddingRight: 22 }}></th>
                 </tr>
               </thead>
@@ -222,19 +223,22 @@ export default function GoalManagement() {
                               onChange={e => setEditForm(p => ({ ...p, hold_count_goal: e.target.value }))} min="0" />
                           </td>
                           <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.actual_hold}</td>
-                          <td style={{ ...td, textAlign: 'right' }}>
-                            <RateBar actual={row.actual_hold} goal={editForm.hold_count_goal} />
-                          </td>
                           <td style={{ ...td, borderLeft: `1px solid ${T.borderSoft}`, textAlign: 'right' }}>
                             <input type="number" style={inputStyle} value={editForm.student_goal}
                               onChange={e => setEditForm(p => ({ ...p, student_goal: e.target.value }))} min="0" />
                           </td>
                           <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.actual_student}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <RateBar actual={row.actual_student} goal={editForm.student_goal} />
+                          </td>
                           <td style={{ ...td, borderLeft: `1px solid ${T.borderSoft}`, textAlign: 'right' }}>
                             <input type="number" style={inputStyle} value={editForm.company_goal}
                               onChange={e => setEditForm(p => ({ ...p, company_goal: e.target.value }))} min="0" />
                           </td>
                           <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.actual_company}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <RateBar actual={row.actual_company} goal={editForm.company_goal} />
+                          </td>
                           <td style={{ ...td, textAlign: 'right', paddingRight: 22 }}>
                             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                               <Btn kind="primary" size="sm" onClick={() => handleSave(row)} style={{ opacity: saving ? 0.6 : 1 }}>保存</Btn>
@@ -246,13 +250,16 @@ export default function GoalManagement() {
                         <>
                           <td style={{ ...td, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}`, fontVariantNumeric: 'tabular-nums', color: noTarget ? T.muted : T.ink }}>{row.hold_count_goal || '—'}</td>
                           <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: row.actual_hold > 0 ? 600 : 400, color: row.actual_hold > 0 ? T.ink : T.muted }}>{row.actual_hold}</td>
-                          <td style={{ ...td, textAlign: 'right' }}>
-                            <RateBar actual={row.actual_hold} goal={row.hold_count_goal} />
-                          </td>
                           <td style={{ ...td, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}`, fontVariantNumeric: 'tabular-nums', color: !row.student_goal ? T.muted : T.ink }}>{row.student_goal || '—'}</td>
                           <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: row.actual_student > 0 ? 600 : 400, color: row.actual_student > 0 ? T.ink : T.muted }}>{row.actual_student}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <RateBar actual={row.actual_student} goal={row.student_goal} />
+                          </td>
                           <td style={{ ...td, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}`, fontVariantNumeric: 'tabular-nums', color: !row.company_goal ? T.muted : T.ink }}>{row.company_goal || '—'}</td>
                           <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: row.actual_company > 0 ? 600 : 400, color: row.actual_company > 0 ? T.ink : T.muted }}>{row.actual_company}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <RateBar actual={row.actual_company} goal={row.company_goal} />
+                          </td>
                           <td style={{ ...td, textAlign: 'right', paddingRight: 22 }}>
                             <button onClick={() => startEdit(row)} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'transparent', color: T.teal, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                               {Icon.edit(14)}
@@ -269,11 +276,12 @@ export default function GoalManagement() {
                   <td style={{ ...td, paddingLeft: 22, fontWeight: 700 }}>合計</td>
                   <td style={{ ...td, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}`, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{totals.hold_count_goal || '—'}</td>
                   <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{totals.actual_hold}</td>
-                  <td style={{ ...td, textAlign: 'right' }}><RateBar actual={totals.actual_hold} goal={totals.hold_count_goal} /></td>
                   <td style={{ ...td, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}`, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{totals.student_goal || '—'}</td>
                   <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{totals.actual_student}</td>
+                  <td style={{ ...td, textAlign: 'right' }}><RateBar actual={totals.actual_student} goal={totals.student_goal} /></td>
                   <td style={{ ...td, textAlign: 'right', borderLeft: `1px solid ${T.borderSoft}`, fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{totals.company_goal || '—'}</td>
                   <td style={{ ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{totals.actual_company}</td>
+                  <td style={{ ...td, textAlign: 'right' }}><RateBar actual={totals.actual_company} goal={totals.company_goal} /></td>
                   <td style={{ paddingRight: 22 }}></td>
                 </tr>
               </tbody>

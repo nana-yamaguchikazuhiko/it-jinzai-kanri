@@ -6,6 +6,7 @@ import { T } from '../constants/theme'
 import TopBar from '../components/TopBar'
 import PageHeader from '../components/PageHeader'
 import Badge, { taskStatusTone } from '../components/Badge'
+import CategoryChip, { getEventCatKey } from '../components/CategoryChip'
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -47,16 +48,20 @@ export default function TaskList() {
   const [filterOverdue, setFilterOverdue] = useState(false)
 
   const eventMap = useMemo(() =>
-    Object.fromEntries(events.map(e => [e.id, e.name])),
+    Object.fromEntries(events.map(e => [e.id, { name: e.name, small_cat: e.small_cat }])),
   [events])
 
   const tasksWithStatus = useMemo(() =>
-    tasks.map(t => ({
-      ...t,
-      _isOverdue: t.status !== '完了' && t.due_date && t.due_date < today,
-      _isSoon:    t.status !== '完了' && t.due_date && t.due_date >= today && t.due_date <= in3Days,
-      _eventName: eventMap[t.event_id] || '—',
-    })),
+    tasks.map(t => {
+      const ev = eventMap[t.event_id]
+      return {
+        ...t,
+        _isOverdue: t.status !== '完了' && t.due_date && t.due_date < today,
+        _isSoon:    t.status !== '完了' && t.due_date && t.due_date >= today && t.due_date <= in3Days,
+        _eventName: ev?.name || '—',
+        _catKey:    getEventCatKey(ev?.small_cat),
+      }
+    }),
   [tasks, eventMap, today, in3Days])
 
   const filtered = useMemo(() => tasksWithStatus.filter(t => {
@@ -174,7 +179,12 @@ export default function TaskList() {
                         {t._eventName}
                       </span>
                     </td>
-                    <td style={{ ...td, fontSize: 12, color: T.inkSoft }}>{t.category || '—'}</td>
+                    <td style={{ ...td }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <CategoryChip cat={t._catKey} size="sm" />
+                        {t.category && <span style={{ fontSize: 11, color: T.inkSoft }}>{t.category}</span>}
+                      </div>
+                    </td>
                     <td style={{ ...td, fontSize: 12, fontVariantNumeric: 'tabular-nums', color: t._isOverdue ? T.danger : t._isSoon ? T.warning : T.ink, fontWeight: (t._isOverdue || t._isSoon) ? 700 : 400 }}>
                       {formatDate(t.due_date)}
                     </td>

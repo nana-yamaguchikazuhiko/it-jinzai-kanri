@@ -6,6 +6,7 @@ import { CATEGORIES, STANDALONE_SMALL_CATS } from '../constants/categories'
 import { T } from '../constants/theme'
 import TopBar from '../components/TopBar'
 import Btn from '../components/Btn'
+import CategoryChip, { getEventCatKey } from '../components/CategoryChip'
 
 const PRIMARY = T.teal
 const TEXT_PRIMARY = T.ink
@@ -141,7 +142,9 @@ export default function BudgetManagement() {
                   background: 'none', border: 'none',
                   borderBottom: activeTab === cat ? `2px solid ${PRIMARY}` : '2px solid transparent',
                   marginBottom: -1, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}>
+                <CategoryChip cat={getEventCatKey(cat)} size="sm" />
                 {cat}
               </button>
             ))}
@@ -385,7 +388,12 @@ function SummaryTab({ smallCats, catBudgets, evBudgets, events }) {
         <tbody>
           {rows.map(r => (
             <tr key={r.cat} style={{ borderTop: `1px solid #f1f5f9` }}>
-              <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{r.cat}</td>
+              <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <CategoryChip cat={getEventCatKey(r.cat)} size="sm" />
+                  {r.cat}
+                </div>
+              </td>
               {tdNum(r.budget,  T.teal)}
               {tdNum(r.income,  '#16a34a')}
               {tdNum(r.expense, '#d97706')}
