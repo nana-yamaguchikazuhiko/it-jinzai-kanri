@@ -74,13 +74,35 @@ function childMiniStatus(child, childTasks, today) {
 const TH = { padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.muted, letterSpacing: '0.04em', textTransform: 'uppercase' }
 const TD = { padding: '12px 16px', fontSize: 13, color: T.ink, verticalAlign: 'middle' }
 
+/* ── 小分類ソート順 ── */
+const SMALL_CAT_ORDER = [
+  '業界研究会',
+  '交流イベント',
+  '業界・職業研究インターンシップ',
+  '新卒者対象企業説明会',
+  '企業情報の提供',
+  'Webサイトの改変',
+  '採用促進型インターンシップ・イベント',
+  '大学等産学IT就職促進 連携会議',
+  '専門学校等 連携会議',
+  '産学連携 情報交換会',
+  '教育機関との日常的な連携・コーディネーション活動',
+  '人材紹介会社との連携（マッチング事業）',
+  'UIJターンの促進',
+  '定例会議',
+  '確保G事業外活動・外部団体活動',
+]
+const catSortIdx = (ev) => {
+  const i = SMALL_CAT_ORDER.indexOf(ev.small_cat)
+  return i === -1 ? 999 : i
+}
+
 /* ── ビュー切替トグル ── */
 const VIEW_OPTS = [
   { key: 'card',     label: 'カード' },
   { key: 'table',    label: 'コンパクト表' },
   { key: 'kanban',   label: '区分カンバン' },
   { key: 'timeline', label: 'タイムラインHub' },
-  { key: 'gantt',    label: '年間スケジュール' },
 ]
 
 function ViewToggle({ view, setView }) {
@@ -161,6 +183,8 @@ export default function EventList() {
         return matchEv(ev) || (childMap[ev.id] || []).some(matchEv)
       })
       .sort((a, b) => {
+        const catDiff = catSortIdx(a) - catSortIdx(b)
+        if (catDiff !== 0) return catDiff
         if (a.event_date === '通年' && b.event_date !== '通年') return -1
         if (a.event_date !== '通年' && b.event_date === '通年') return 1
         return (a.event_date || '').localeCompare(b.event_date || '')
@@ -248,10 +272,8 @@ export default function EventList() {
           <CompactTableView filtered={filtered} tasks={tasks} childMap={childMap} calcProgress={calcProgress} navigate={navigate} />
         ) : view === 'kanban' ? (
           <KanbanView filtered={filtered} tasks={tasks} childMap={childMap} calcProgress={calcProgress} navigate={navigate} />
-        ) : view === 'timeline' ? (
-          <TimelineHubView filtered={filtered} tasks={tasks} childMap={childMap} calcProgress={calcProgress} navigate={navigate} />
         ) : (
-          <AnnualGantt events={filtered} tasks={tasks} childMap={childMap} onEventClick={id => navigate(`/events/${id}`)} />
+          <TimelineHubView filtered={filtered} tasks={tasks} childMap={childMap} calcProgress={calcProgress} navigate={navigate} />
         )}
       </div>
     </div>
@@ -634,10 +656,8 @@ function TimelineHubView({ filtered, tasks, childMap, calcProgress, navigate }) 
   )
 }
 
-/* ══════════════════════════════════════
-   ANNUAL GANTT（既存）
-   ══════════════════════════════════════ */
-function AnnualGantt({ events, tasks, childMap = {}, onEventClick }) {
+/* (AnnualGantt removed — replaced by TimelineHub) */
+function _unused({ events, tasks, childMap = {}, onEventClick }) {
   const today = new Date()
   const fiscalYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1
   const GANTT_MONTHS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3]
