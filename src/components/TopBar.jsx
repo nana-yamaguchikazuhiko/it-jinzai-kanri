@@ -18,7 +18,7 @@ export default function TopBar({ children }) {
           width: 32, height: 32, borderRadius: '50%',
           background: T.teal, color: '#fff', fontSize: 12, fontWeight: 700,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        }}>YN</div>
+        }}>D</div>
       </div>
     </div>
   )
