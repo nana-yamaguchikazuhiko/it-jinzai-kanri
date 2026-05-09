@@ -149,13 +149,16 @@ export default function EventDetail() {
   const formCompanyCount = formSync.filter(r => r.event_id === id && r.type === 'company').length
 
   const ganttData = useMemo(() => {
-    if (!event?.event_date || evTasks.length === 0) return null
-    const eventDate = new Date(event.event_date)
-    // タスクの開始日・期日をすべて含む範囲に広げる
+    if (evTasks.length === 0) return null
+    // 通年イベントは日付なしとして扱う
+    const eventDate = event?.event_date && event.event_date !== '通年'
+      ? new Date(event.event_date) : null
     const taskDates = evTasks
       .flatMap(t => [t.start_date, t.due_date].filter(Boolean))
       .map(d => new Date(d))
-    const allDates = [eventDate, ...taskDates]
+      .filter(d => !isNaN(d.getTime()))
+    const allDates = eventDate ? [eventDate, ...taskDates] : taskDates
+    if (allDates.length === 0) return null
     const minDate = new Date(Math.min(...allDates.map(d => d.getTime())))
     const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
     const start = new Date(minDate); start.setDate(start.getDate() - 7)
@@ -788,7 +791,7 @@ function GanttChart({ tasks, ganttData, today }) {
   }
 
   const todayPos = getPos(today)
-  const eventPos = getPos(eventDate.toISOString().split('T')[0])
+  const eventPos = eventDate ? getPos(eventDate.toISOString().split('T')[0]) : null
 
   const monthLabels = []
   const cur = new Date(start)
