@@ -151,8 +151,15 @@ export default function EventDetail() {
   const ganttData = useMemo(() => {
     if (!event?.event_date || evTasks.length === 0) return null
     const eventDate = new Date(event.event_date)
-    const start = new Date(eventDate); start.setDate(start.getDate() - 90)
-    const end = new Date(eventDate); end.setDate(end.getDate() + 14)
+    // タスクの開始日・期日をすべて含む範囲に広げる
+    const taskDates = evTasks
+      .flatMap(t => [t.start_date, t.due_date].filter(Boolean))
+      .map(d => new Date(d))
+    const allDates = [eventDate, ...taskDates]
+    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())))
+    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
+    const start = new Date(minDate); start.setDate(start.getDate() - 7)
+    const end   = new Date(maxDate); end.setDate(end.getDate() + 7)
     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
     return { start, end, totalDays, eventDate }
   }, [event, evTasks])
@@ -804,13 +811,27 @@ function GanttChart({ tasks, ganttData, today }) {
         {todayPos !== null && <div style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: '#f87171', zIndex: 10, left: `${todayPos}%` }} title="今日" />}
         {eventPos !== null && <div style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: PRIMARY, zIndex: 10, left: `${eventPos}%` }} title="開催日" />}
         {[...tasks].sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')).map(t => {
-          const pos = getPos(t.due_date)
-          if (pos === null) return null
+          const startPos = getPos(t.start_date)
+          const duePos   = getPos(t.due_date)
+          if (duePos === null) return null
+          const color = statusColor[t.status] || '#d1d5db'
+          const hasBar = startPos !== null && startPos < duePos
           return (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 160, flexShrink: 0, fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.name}>{t.name}</div>
               <div style={{ flex: 1, position: 'relative', height: 20, background: '#f1f5f9', borderRadius: 4 }}>
-                <div style={{ position: 'absolute', top: 4, height: 12, width: 12, borderRadius: 3, left: `${pos}%`, background: statusColor[t.status] || '#d1d5db', transform: 'translateX(-50%)' }} title={`${t.name}: ${t.due_date}`} />
+                {hasBar ? (
+                  <div style={{
+                    position: 'absolute', top: 4, height: 12,
+                    left: `${startPos}%`, width: `${duePos - startPos}%`,
+                    background: color, borderRadius: 4, minWidth: 6,
+                  }} title={`${t.name}: ${t.start_date} ～ ${t.due_date}`} />
+                ) : (
+                  <div style={{
+                    position: 'absolute', top: 4, height: 12, width: 12, borderRadius: 3,
+                    left: `${duePos}%`, background: color, transform: 'translateX(-50%)',
+                  }} title={`${t.name}: ${t.due_date}`} />
+                )}
               </div>
             </div>
           )
