@@ -53,7 +53,7 @@ export default function PasswordGate({ children }) {
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F4F0' }}>
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 w-80">
           <div className="mb-6 text-center">
-            <p className="text-xs text-gray-400 mb-1">IT人材確保事業</p>
+            <p className="text-xs text-gray-400 mb-1">MISA人財確保事業</p>
             <h1 className="text-lg font-bold text-gray-800">運営管理システム</h1>
           </div>
 
