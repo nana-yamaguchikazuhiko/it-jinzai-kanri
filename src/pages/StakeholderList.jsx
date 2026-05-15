@@ -30,6 +30,8 @@ const inputStyle = {
 export default function StakeholderList() {
   const navigate = useNavigate()
   const { rows: stakeholders, loading, reload } = useSheets('stakeholders')
+  const { rows: eventSH } = useSheets('event_stakeholders')
+  const { rows: shGroups } = useSheets('sh_groups')
 
   const [filterType,   setFilterType  ] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -149,7 +151,11 @@ export default function StakeholderList() {
                           </div>
                         </td>
                       </tr>
-                      {isExpanded && (
+                      {isExpanded && (() => {
+                        const groupIds = eventSH.filter(r => r.stakeholder_id === s.id && r.group_id).map(r => r.group_id)
+                        const uniqueGroupIds = [...new Set(groupIds)]
+                        const groupNames = uniqueGroupIds.map(gid => shGroups.find(g => g.id === gid)?.name).filter(Boolean)
+                        return (
                         <tr key={`${s.id}-detail`}>
                           <td colSpan={7} style={{ padding: '12px 24px 16px', background: T.surfaceAlt, borderTop: `1px solid ${T.borderSoft}` }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 24px' }}>
@@ -162,6 +168,14 @@ export default function StakeholderList() {
                                   <span style={{ color: T.ink }}>{val || '—'}</span>
                                 </div>
                               ))}
+                              {groupNames.length > 0 && (
+                                <div style={{ fontSize: 12, gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                  <span style={{ color: T.muted }}>所属グループ: </span>
+                                  {groupNames.map(name => (
+                                    <span key={name} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: T.tealBg, color: T.teal, fontWeight: 600 }}>{name}</span>
+                                  ))}
+                                </div>
+                              )}
                               {s.memo && (
                                 <div style={{ fontSize: 12, gridColumn: '1 / -1' }}>
                                   <span style={{ color: T.muted }}>メモ: </span>
@@ -171,7 +185,8 @@ export default function StakeholderList() {
                             </div>
                           </td>
                         </tr>
-                      )}
+                        )
+                      })()}
                     </>
                   )
                 })}

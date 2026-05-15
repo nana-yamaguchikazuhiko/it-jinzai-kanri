@@ -90,6 +90,7 @@ export default function EventDetail() {
   const { rows: surveyResponses, reload: reloadSurveyResponses } = useSheets('survey_responses')
   const { rows: eventDocs, reload: reloadDocs } = useSheets('event_documents')
   const { rows: eventBudgets, reload: reloadBudgets } = useSheets('event_budgets')
+  const { rows: shGroups, reload: reloadGroups } = useSheets('sh_groups')
 
   const [activeTab, setActiveTab] = useState('tasks')
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -105,13 +106,22 @@ export default function EventDetail() {
   const [editingTaskId, setEditingTaskId] = useState(null)
   const [taskEditForm, setTaskEditForm] = useState({})
   const [addingTask, setAddingTask] = useState(false)
-  const [newTaskForm, setNewTaskForm] = useState({ name: '', category: '', start_date: '', due_date: '', assignee: '', status: '未着手', memo: '' })
+  const [newTaskForm, setNewTaskForm] = useState({ name: '', category: '', start_date: '', due_date: '', assignee: '', status: '未着手', memo: '', is_contact: false, contact_ids: '' })
   const [savingTask, setSavingTask] = useState(false)
 
   // SH紐づけ
   const [addingSH, setAddingSH] = useState(false)
   const [selectedSHId, setSelectedSHId] = useState('')
+  const [selectedGroupOnAdd, setSelectedGroupOnAdd] = useState('')
   const [savingSH, setSavingSH] = useState(false)
+
+  // グループ管理
+  const [addingGroup, setAddingGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [savingGroup, setSavingGroup] = useState(false)
+
+  // メールポップアップ
+  const [contactPopup, setContactPopup] = useState(null) // null | { contactIds: string }
 
   const event = events.find(e => e.id === id)
   const childEvents = events.filter(e => e.parent_id === id)
@@ -124,8 +134,15 @@ export default function EventDetail() {
   useEffect(() => { if (isParent) setActiveTab('children') }, [isParent])
 
   const evTasks = tasks.filter(t => allEventIds.includes(t.event_id))
+  const evSHLinks = eventSH.filter(r => r.event_id === id)
   const evSHIds = eventSH.filter(r => allEventIds.includes(r.event_id)).map(r => r.stakeholder_id)
   const evStakeholders = stakeholders.filter(s => evSHIds.includes(s.id))
+  const evSHWithGroup = useMemo(() =>
+    evStakeholders.map(sh => {
+      const link = evSHLinks.find(r => r.stakeholder_id === sh.id)
+      return { ...sh, _linkId: link?.id, _groupId: link?.group_id || '' }
+    })
+  , [evStakeholders, evSHLinks])
   const evResult = results.find(r => r.event_id === id)
   const evReport = eventReports.find(r => r.event_id === id)
   const today = new Date().toISOString().split('T')[0]
@@ -175,12 +192,15 @@ export default function EventDetail() {
 
   const startEditTask = (task) => {
     setEditingTaskId(task.id)
-    setTaskEditForm({ name: task.name, category: task.category, start_date: task.start_date || '', due_date: task.due_date, assignee: task.assignee, status: task.status, memo: task.memo })
+    setTaskEditForm({ name: task.name, category: task.category, start_date: task.start_date || '', due_date: task.due_date, assignee: task.assignee, status: task.status, memo: task.memo, is_contact: task.is_contact === '1', contact_ids: task.contact_ids || '' })
   }
 
   const handleSaveTask = async (task) => {
     setSavingTask(true)
-    try { await updateById('tasks', task.id, { ...task, ...taskEditForm }); reloadTasks(); setEditingTaskId(null) }
+    try {
+      await updateById('tasks', task.id, { ...task, ...taskEditForm, is_contact: taskEditForm.is_contact ? '1' : '', contact_ids: taskEditForm.contact_ids || '' })
+      reloadTasks(); setEditingTaskId(null)
+    }
     catch (e) { alert('更新失敗: ' + e.message) }
     finally { setSavingTask(false) }
   }
@@ -199,10 +219,11 @@ export default function EventDetail() {
         generateId(), id, newTaskForm.name, newTaskForm.category,
         newTaskForm.start_date, newTaskForm.due_date,
         newTaskForm.assignee, newTaskForm.status, newTaskForm.memo,
+        newTaskForm.is_contact ? '1' : '', newTaskForm.contact_ids || '',
       ])
       reloadTasks()
       setAddingTask(false)
-      setNewTaskForm({ name: '', category: '', start_date: '', due_date: '', assignee: '', status: '未着手', memo: '' })
+      setNewTaskForm({ name: '', category: '', start_date: '', due_date: '', assignee: '', status: '未着手', memo: '', is_contact: false, contact_ids: '' })
     } catch (e) { alert('追加失敗: ' + e.message) }
     finally { setSavingTask(false) }
   }
@@ -285,8 +306,8 @@ export default function EventDetail() {
     if (!selectedSHId) return
     setSavingSH(true)
     try {
-      await appendRow('event_stakeholders', [generateId(), id, selectedSHId])
-      reloadEventSH(); setAddingSH(false); setSelectedSHId('')
+      await appendRow('event_stakeholders', [generateId(), id, selectedSHId, selectedGroupOnAdd])
+      reloadEventSH(); setAddingSH(false); setSelectedSHId(''); setSelectedGroupOnAdd('')
     } catch (e) { alert('紐づけ失敗: ' + e.message) }
     finally { setSavingSH(false) }
   }
@@ -297,6 +318,56 @@ export default function EventDetail() {
     if (!confirm('このステークホルダーとの紐づけを解除しますか？')) return
     try { await deleteById('event_stakeholders', link.id); reloadEventSH() }
     catch (e) { alert('解除失敗: ' + e.message) }
+  }
+
+  const handleUpdateSHGroup = async (linkId, newGroupId) => {
+    const link = eventSH.find(r => r.id === linkId)
+    if (!link) return
+    try { await updateById('event_stakeholders', linkId, { ...link, group_id: newGroupId }); reloadEventSH() }
+    catch (e) { alert('グループ更新失敗: ' + e.message) }
+  }
+
+  const handleAddGroup = async () => {
+    if (!newGroupName.trim()) return
+    setSavingGroup(true)
+    try {
+      await appendRow('sh_groups', [generateId(), newGroupName.trim()])
+      await reloadGroups(); setNewGroupName(''); setAddingGroup(false)
+    } catch (e) { alert('グループ追加失敗: ' + e.message) }
+    finally { setSavingGroup(false) }
+  }
+
+  const handleDeleteGroup = async (grp) => {
+    if (!confirm(`グループ「${grp.name}」を削除しますか？`)) return
+    try { await deleteById('sh_groups', grp.id); reloadGroups() }
+    catch (e) { alert('削除失敗: ' + e.message) }
+  }
+
+  const toggleContactId = (contactIds, prefixedId) => {
+    const ids = contactIds ? contactIds.split(',').filter(Boolean) : []
+    const idx = ids.indexOf(prefixedId)
+    if (idx >= 0) ids.splice(idx, 1)
+    else ids.push(prefixedId)
+    return ids.join(',')
+  }
+
+  const getContactEmails = (contactIds) => {
+    if (!contactIds) return []
+    const emails = []
+    const seen = new Set()
+    contactIds.split(',').filter(Boolean).forEach(prefId => {
+      if (prefId.startsWith('sh:')) {
+        const sh = stakeholders.find(s => s.id === prefId.slice(3))
+        if (sh?.email && !seen.has(sh.email)) { seen.add(sh.email); emails.push({ name: sh.name, email: sh.email }) }
+      } else if (prefId.startsWith('grp:')) {
+        const grpId = prefId.slice(4)
+        evSHLinks.filter(r => r.group_id === grpId).forEach(link => {
+          const sh = stakeholders.find(s => s.id === link.stakeholder_id)
+          if (sh?.email && !seen.has(sh.email)) { seen.add(sh.email); emails.push({ name: sh.name, email: sh.email }) }
+        })
+      }
+    })
+    return emails
   }
 
   if (!event) {
@@ -584,7 +655,7 @@ export default function EventDetail() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#fafbfc' }}>
-                  {[...(isParent ? ['イベント'] : []), 'タスク名', 'カテゴリ', '開始日', '期日', 'ステータス', ''].map((h, i) => (
+                  {[...(isParent ? ['イベント'] : []), 'タスク名', 'カテゴリ', '開始日', '期日', 'ステータス', '連絡', ''].map((h, i) => (
                     <th key={i} style={thStyle}>{h}</th>
                   ))}
                 </tr>
@@ -592,6 +663,7 @@ export default function EventDetail() {
               <tbody>
                 {/* 新規追加行 */}
                 {addingTask && (
+                  <>
                   <tr style={{ borderTop: '1px solid #f8fafc', background: '#f0fdf4' }}>
                     <td style={{ padding: '10px 16px' }}><input className="form-input text-xs py-1" placeholder="タスク名 *" value={newTaskForm.name} onChange={e => setNewTaskForm(p => ({ ...p, name: e.target.value }))} /></td>
                     <td style={{ padding: '10px 12px' }}><input className="form-input text-xs py-1" placeholder="カテゴリ" value={newTaskForm.category} onChange={e => setNewTaskForm(p => ({ ...p, category: e.target.value }))} /></td>
@@ -602,6 +674,10 @@ export default function EventDetail() {
                         {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
                       </select>
                     </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <input type="checkbox" checked={newTaskForm.is_contact}
+                        onChange={e => setNewTaskForm(p => ({ ...p, is_contact: e.target.checked, contact_ids: e.target.checked ? p.contact_ids : '' }))} />
+                    </td>
                     <td style={{ padding: '10px 16px' }}>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
@@ -611,15 +687,48 @@ export default function EventDetail() {
                       </div>
                     </td>
                   </tr>
+                  {newTaskForm.is_contact && (
+                    <tr style={{ background: '#eff6ff' }}>
+                      <td colSpan={isParent ? 8 : 7} style={{ padding: '8px 16px', borderBottom: '1px solid #bfdbfe' }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: T.teal, marginBottom: 6 }}>連絡先を選択</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                          {evStakeholders.map(sh => {
+                            const prefId = `sh:${sh.id}`
+                            const checked = newTaskForm.contact_ids.split(',').includes(prefId)
+                            return (
+                              <label key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={checked}
+                                  onChange={() => setNewTaskForm(p => ({ ...p, contact_ids: toggleContactId(p.contact_ids, prefId) }))} />
+                                {sh.name}
+                              </label>
+                            )
+                          })}
+                          {shGroups.map(grp => {
+                            const prefId = `grp:${grp.id}`
+                            const checked = newTaskForm.contact_ids.split(',').includes(prefId)
+                            return (
+                              <label key={grp.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer', color: T.teal, fontWeight: 500 }}>
+                                <input type="checkbox" checked={checked}
+                                  onChange={() => setNewTaskForm(p => ({ ...p, contact_ids: toggleContactId(p.contact_ids, prefId) }))} />
+                                [{grp.name}]
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </>
                 )}
 
                 {evTasks.length === 0 && !addingTask ? (
-                  <tr><td colSpan={isParent ? 7 : 6} style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>タスクがありません</td></tr>
+                  <tr><td colSpan={isParent ? 8 : 7} style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>タスクがありません</td></tr>
                 ) : (
                   sortedTasks.map(t => {
                     const isOverdue = t.status !== '完了' && t.due_date && t.due_date < today
                     const isEditing = editingTaskId === t.id
                     return (
+                      <>
                       <tr key={t.id} style={{ borderTop: '1px solid #f8fafc', background: isEditing ? '#eff6ff' : isOverdue ? '#fff5f5' : 'transparent' }}>
                         {isEditing ? (
                           <>
@@ -631,6 +740,10 @@ export default function EventDetail() {
                               <select className="form-select text-xs py-1" value={taskEditForm.status} onChange={e => setTaskEditForm(p => ({ ...p, status: e.target.value }))}>
                                 {TASK_STATUSES.map(s => <option key={s}>{s}</option>)}
                               </select>
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <input type="checkbox" checked={taskEditForm.is_contact}
+                                onChange={e => setTaskEditForm(p => ({ ...p, is_contact: e.target.checked, contact_ids: e.target.checked ? p.contact_ids : '' }))} />
                             </td>
                             <td style={{ padding: '10px 16px' }}>
                               <div style={{ display: 'flex', gap: 8 }}>
@@ -656,6 +769,16 @@ export default function EventDetail() {
                                 {TASK_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                             </td>
+                            <td style={{ padding: '13px 12px', textAlign: 'center' }}>
+                              {t.is_contact === '1' && (
+                                <button
+                                  onClick={() => setContactPopup({ contactIds: t.contact_ids || '' })}
+                                  style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, border: `1px solid ${T.teal}`, background: T.tealBg, color: T.teal, cursor: 'pointer', fontWeight: 600 }}
+                                  title="連絡先メール一覧">
+                                  📧 連絡先
+                                </button>
+                              )}
+                            </td>
                             <td style={{ padding: '13px 20px' }}>
                               {!isParent && (
                                 <div style={{ display: 'flex', gap: 12 }}>
@@ -669,6 +792,38 @@ export default function EventDetail() {
                           </>
                         )}
                       </tr>
+                      {isEditing && taskEditForm.is_contact && (
+                        <tr style={{ background: '#eff6ff' }}>
+                          <td colSpan={isParent ? 8 : 7} style={{ padding: '8px 16px', borderBottom: '1px solid #bfdbfe' }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: T.teal, marginBottom: 6 }}>連絡先を選択</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                              {evStakeholders.map(sh => {
+                                const prefId = `sh:${sh.id}`
+                                const checked = taskEditForm.contact_ids.split(',').includes(prefId)
+                                return (
+                                  <label key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={checked}
+                                      onChange={() => setTaskEditForm(p => ({ ...p, contact_ids: toggleContactId(p.contact_ids, prefId) }))} />
+                                    {sh.name}
+                                  </label>
+                                )
+                              })}
+                              {shGroups.map(grp => {
+                                const prefId = `grp:${grp.id}`
+                                const checked = taskEditForm.contact_ids.split(',').includes(prefId)
+                                return (
+                                  <label key={grp.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer', color: T.teal, fontWeight: 500 }}>
+                                    <input type="checkbox" checked={checked}
+                                      onChange={() => setTaskEditForm(p => ({ ...p, contact_ids: toggleContactId(p.contact_ids, prefId) }))} />
+                                    [{grp.name}]
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </>
                     )
                   })
                 )}
@@ -691,9 +846,36 @@ export default function EventDetail() {
           {/* ── ステークホルダータブ ──────────────── */}
           {activeTab === 'stakeholders' && (
             <>
+              {/* グループ管理バー */}
+              <div style={{ padding: '12px 24px', borderBottom: `1px solid ${T.borderSoft}`, background: T.surfaceAlt, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '0.06em' }}>グループ</span>
+                {shGroups.map(grp => (
+                  <span key={grp.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, padding: '3px 10px', borderRadius: 20, background: T.tealBg, color: T.teal, fontWeight: 600, border: `1px solid ${T.teal}44` }}>
+                    {grp.name}
+                    <button onClick={() => handleDeleteGroup(grp)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.teal, fontSize: 12, lineHeight: 1, padding: 0, display: 'inline-flex' }}>×</button>
+                  </span>
+                ))}
+                {addingGroup ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input autoFocus value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGroupName('') } }}
+                      placeholder="グループ名" style={{ fontSize: 12, padding: '4px 8px', border: `1px solid ${T.border}`, borderRadius: 4, fontFamily: 'inherit', outline: 'none', width: 140 }} />
+                    <button onClick={handleAddGroup} disabled={savingGroup || !newGroupName.trim()}
+                      style={{ fontSize: 11, padding: '4px 10px', borderRadius: 4, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>追加</button>
+                    <button onClick={() => { setAddingGroup(false); setNewGroupName('') }}
+                      style={{ fontSize: 11, color: TEXT_MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingGroup(true)}
+                    style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, border: `1px dashed ${T.border}`, background: 'none', color: TEXT_MUTED, cursor: 'pointer' }}>
+                    ＋ グループを追加
+                  </button>
+                )}
+              </div>
+
               {addingSH && (
-                <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', background: '#f0fdf4', display: 'flex', alignItems: 'flex-end', gap: 12 }}>
-                  <div style={{ flex: 1 }}>
+                <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', background: '#f0fdf4', display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
                     <label className="form-label">ステークホルダーを選択</label>
                     <select className="form-select" value={selectedSHId} onChange={e => setSelectedSHId(e.target.value)}>
                       <option value="">選択...</option>
@@ -702,33 +884,47 @@ export default function EventDetail() {
                       ))}
                     </select>
                   </div>
+                  <div style={{ minWidth: 160 }}>
+                    <label className="form-label">グループ（任意）</label>
+                    <select className="form-select" value={selectedGroupOnAdd} onChange={e => setSelectedGroupOnAdd(e.target.value)}>
+                      <option value="">グループなし</option>
+                      {shGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                  </div>
                   <button style={{ padding: '8px 18px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
                     onClick={handleAddSH} disabled={savingSH || !selectedSHId}>
                     {savingSH ? '追加中...' : '追加'}
                   </button>
                   <button style={{ fontSize: 13, color: TEXT_MUTED, background: 'none', border: 'none', cursor: 'pointer' }}
-                    onClick={() => { setAddingSH(false); setSelectedSHId('') }}>キャンセル</button>
+                    onClick={() => { setAddingSH(false); setSelectedSHId(''); setSelectedGroupOnAdd('') }}>キャンセル</button>
                 </div>
               )}
-              {evStakeholders.length === 0 ? (
+              {evSHWithGroup.length === 0 ? (
                 <p style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 13, padding: '40px 0' }}>紐づくステークホルダーがありません</p>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#fafbfc' }}>
-                      {['名称', '種別', '担当者', '連絡状況', '次アクション期限', ''].map((h, i) => (
+                      {['名称', '種別', '担当者', '連絡状況', '次アクション期限', 'グループ', ''].map((h, i) => (
                         <th key={i} style={thStyle}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {evStakeholders.map(s => (
+                    {evSHWithGroup.map(s => (
                       <tr key={s.id} style={{ borderTop: '1px solid #f8fafc' }}>
                         <td style={{ padding: '13px 20px', fontSize: 13, color: TEXT_PRIMARY, fontWeight: 500 }}>{s.name}</td>
                         <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{s.type}</td>
                         <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{s.contact_name || '—'}</td>
                         <td style={{ padding: '13px 20px' }}><ContactStatusBadge status={s.contact_status} /></td>
                         <td style={{ padding: '13px 20px', fontSize: 12, color: TEXT_SECONDARY }}>{formatDate(s.next_action_date)}</td>
+                        <td style={{ padding: '13px 20px' }}>
+                          <select value={s._groupId} onChange={e => handleUpdateSHGroup(s._linkId, e.target.value)}
+                            style={{ fontSize: 11, border: `1px solid ${T.border}`, borderRadius: 4, padding: '3px 6px', background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <option value="">なし</option>
+                            {shGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                          </select>
+                        </td>
                         <td style={{ padding: '13px 20px' }}>
                           <button style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
                             onClick={() => handleRemoveSH(s.id)}>紐づけ解除</button>
@@ -776,6 +972,45 @@ export default function EventDetail() {
           )}
         </div>
       </div>
+
+      {/* ── メールポップアップ ─────────────────── */}
+      {contactPopup && (() => {
+        const emails = getContactEmails(contactPopup.contactIds)
+        const allEmails = emails.map(e => e.email).join(', ')
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setContactPopup(null)}>
+            <div style={{ background: T.surface, borderRadius: 8, width: 440, boxShadow: '0 16px 48px rgba(0,0,0,0.2)', overflow: 'hidden' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.borderSoft}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.surfaceAlt }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>連絡先メールアドレス</span>
+                <button onClick={() => setContactPopup(null)} style={{ background: 'none', border: 'none', fontSize: 18, color: T.muted, cursor: 'pointer', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ padding: '16px 20px' }}>
+                {emails.length === 0 ? (
+                  <p style={{ fontSize: 13, color: TEXT_MUTED, textAlign: 'center', padding: '20px 0' }}>連絡先が選択されていません</p>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {emails.map((e, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 10px', background: T.bg, borderRadius: 4 }}>
+                          <span style={{ fontWeight: 500, color: T.ink }}>{e.name}</span>
+                          <span style={{ color: T.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{e.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(allEmails); alert('コピーしました') }}
+                      style={{ width: '100%', padding: '9px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                      メールアドレスを一括コピー（{emails.length}件）
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
