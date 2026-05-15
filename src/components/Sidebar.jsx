@@ -24,7 +24,7 @@ export default function Sidebar() {
       {/* ブランド */}
       <div style={{ padding: '22px 22px 18px' }}>
         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.14em', marginBottom: 4, textTransform: 'uppercase' }}>
-          MISA人材確保事業
+          MISA人財確保事業
         </div>
         <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', letterSpacing: '-0.005em', whiteSpace: 'nowrap' }}>
           運営管理システム
