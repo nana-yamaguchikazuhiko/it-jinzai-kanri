@@ -1,5 +1,6 @@
 import { T } from '../constants/theme'
 import NotificationBell from './NotificationBell'
+import TodayTasksButton from './TodayTasksButton'
 
 export default function TopBar({ children }) {
   return (
@@ -13,6 +14,7 @@ export default function TopBar({ children }) {
         {children}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <TodayTasksButton />
         <NotificationBell />
         <div style={{
           width: 32, height: 32, borderRadius: '50%',

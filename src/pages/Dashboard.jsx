@@ -6,6 +6,7 @@ import TopBar from '../components/TopBar'
 import PageHeader from '../components/PageHeader'
 import Badge, { taskStatusTone } from '../components/Badge'
 import CategoryChip, { getEventCatKey } from '../components/CategoryChip'
+import TodayTasksPanel from '../components/TodayTasksPanel'
 import { T } from '../constants/theme'
 import { Icon } from '../components/Icons'
 
@@ -141,6 +142,14 @@ export default function Dashboard() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* 本日のタスク提案 */}
+        <div style={{ background: T.surface, borderRadius: 4, border: `1px solid ${T.border}`, boxShadow: '0 1px 0 rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: 18 }}>
+          <div style={{ padding: '14px 22px', borderBottom: `1px solid ${T.borderSoft}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.surfaceAlt }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>本日のタスク提案</h3>
+          </div>
+          <TodayTasksPanel tasks={tasks} events={events} navigate={navigate} />
         </div>
 
         {/* 2カラム下段 */}
