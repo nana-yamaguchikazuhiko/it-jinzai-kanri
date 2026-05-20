@@ -45,8 +45,42 @@ function formatDate(d) {
   return d.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1/$2/$3')
 }
 
+function TaskRow({ t, catMap, eventMap, navigate, borderBottom }) {
+  const cat = catMap[t._cat]
+  return (
+    <div
+      onClick={() => navigate(`/events/${t.event_id}`)}
+      style={{
+        padding: '10px 16px',
+        borderBottom: borderBottom ? `1px solid ${T.borderSoft}` : 'none',
+        background: cat.bg, cursor: 'pointer',
+        display: 'flex', flexDirection: 'column', gap: 4,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: cat.dot, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 700, color: cat.fg, flexShrink: 0 }}>{cat.label}</span>
+        {t.due_date && (
+          <span style={{ fontSize: 11, color: T.muted, marginLeft: 'auto', flexShrink: 0 }}>
+            期日: {formatDate(t.due_date)}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, paddingLeft: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {t.name}
+      </div>
+      {eventMap[t.event_id] && (
+        <div style={{ fontSize: 11, color: T.inkSoft, paddingLeft: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {eventMap[t.event_id]}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TodayTasksPanel({ tasks, events, navigate }) {
   const [page, setPage] = useState(0)
+  const [showInProgress, setShowInProgress] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const todayLabel = new Date().toLocaleDateString('ja-JP', {
@@ -60,9 +94,14 @@ export default function TodayTasksPanel({ tasks, events, navigate }) {
 
   const categorized = useMemo(() => categorizeTasks(tasks, today), [tasks, today])
 
-  const totalPages = Math.ceil(categorized.length / PAGE_SIZE)
-  const pageItems = categorized.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const mainItems = useMemo(() => categorized.filter(t => t._cat !== 'inProgress'), [categorized])
+  const inProgressItems = useMemo(() => categorized.filter(t => t._cat === 'inProgress'), [categorized])
+
+  const totalPages = Math.ceil(mainItems.length / PAGE_SIZE)
+  const pageItems = mainItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const catMap = Object.fromEntries(TASK_CATS.map(c => [c.key, c]))
+
+  const inProgressCat = TASK_CATS.find(c => c.key === 'inProgress')
 
   return (
     <div>
@@ -74,12 +113,14 @@ export default function TodayTasksPanel({ tasks, events, navigate }) {
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>{todayLabel}</div>
           <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>
-            {categorized.length === 0 ? '対応タスクなし' : `${categorized.length}件の提案`}
+            {mainItems.length === 0 && inProgressItems.length === 0
+              ? '対応タスクなし'
+              : `${mainItems.length}件の提案${inProgressItems.length > 0 ? `・進行中 ${inProgressItems.length}件` : ''}`}
           </div>
         </div>
         {/* 凡例 */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', justifyContent: 'flex-end', maxWidth: 260 }}>
-          {TASK_CATS.map(c => (
+          {TASK_CATS.filter(c => c.key !== 'inProgress').map(c => (
             <span key={c.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: T.muted }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
               {c.label}
@@ -88,49 +129,21 @@ export default function TodayTasksPanel({ tasks, events, navigate }) {
         </div>
       </div>
 
-      {/* タスクリスト */}
-      {categorized.length === 0 ? (
+      {/* メインタスクリスト */}
+      {mainItems.length === 0 && inProgressItems.length === 0 ? (
         <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: T.muted }}>
           本日対応すべきタスクはありません 🎉
         </div>
       ) : (
         <>
-          <div>
-            {pageItems.map((t, i) => {
-              const cat = catMap[t._cat]
-              return (
-                <div
-                  key={t.id}
-                  onClick={() => navigate(`/events/${t.event_id}`)}
-                  style={{
-                    padding: '10px 16px',
-                    borderBottom: i < pageItems.length - 1 ? `1px solid ${T.borderSoft}` : 'none',
-                    background: cat.bg, cursor: 'pointer',
-                    display: 'flex', flexDirection: 'column', gap: 4,
-                    transition: 'opacity 0.1s',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: cat.dot, flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: cat.fg, flexShrink: 0 }}>{cat.label}</span>
-                    {t.due_date && (
-                      <span style={{ fontSize: 11, color: T.muted, marginLeft: 'auto', flexShrink: 0 }}>
-                        期日: {formatDate(t.due_date)}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, paddingLeft: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {t.name}
-                  </div>
-                  {eventMap[t.event_id] && (
-                    <div style={{ fontSize: 11, color: T.inkSoft, paddingLeft: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {eventMap[t.event_id]}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          {mainItems.length > 0 && (
+            <div>
+              {pageItems.map((t, i) => (
+                <TaskRow key={t.id} t={t} catMap={catMap} eventMap={eventMap} navigate={navigate}
+                  borderBottom={i < pageItems.length - 1} />
+              ))}
+            </div>
+          )}
 
           {/* ページネーション */}
           {totalPages > 1 && (
@@ -139,31 +152,56 @@ export default function TodayTasksPanel({ tasks, events, navigate }) {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               background: T.surfaceAlt,
             }}>
-              <button
-                disabled={page === 0}
-                onClick={() => setPage(p => p - 1)}
+              <button disabled={page === 0} onClick={() => setPage(p => p - 1)}
                 style={{
                   fontSize: 11, padding: '4px 12px', borderRadius: 4,
                   border: `1px solid ${T.border}`, background: T.surface,
                   cursor: page === 0 ? 'default' : 'pointer',
                   color: page === 0 ? T.muted : T.ink,
                   opacity: page === 0 ? 0.4 : 1, fontFamily: 'inherit',
-                }}
-              >← 前へ</button>
+                }}>← 前へ</button>
               <span style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
-                {page + 1} / {totalPages} ページ（{categorized.length}件）
+                {page + 1} / {totalPages} ページ（{mainItems.length}件）
               </span>
-              <button
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage(p => p + 1)}
+              <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}
                 style={{
                   fontSize: 11, padding: '4px 12px', borderRadius: 4,
                   border: `1px solid ${T.border}`, background: T.surface,
                   cursor: page >= totalPages - 1 ? 'default' : 'pointer',
                   color: page >= totalPages - 1 ? T.muted : T.ink,
                   opacity: page >= totalPages - 1 ? 0.4 : 1, fontFamily: 'inherit',
+                }}>次へ →</button>
+            </div>
+          )}
+
+          {/* 進行中タスク（折りたたみ） */}
+          {inProgressItems.length > 0 && (
+            <div style={{ borderTop: `1px solid ${T.borderSoft}` }}>
+              <button
+                onClick={() => setShowInProgress(v => !v)}
+                style={{
+                  width: '100%', padding: '10px 16px',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: showInProgress ? T.tealBg : T.surfaceAlt,
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  borderBottom: showInProgress ? `1px solid ${T.borderSoft}` : 'none',
                 }}
-              >次へ →</button>
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: inProgressCat.dot, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: inProgressCat.fg, flex: 1, textAlign: 'left' }}>
+                  進行中タスクを確認
+                </span>
+                <span style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
+                  {inProgressItems.length}件
+                </span>
+                <span style={{ fontSize: 11, color: T.teal, marginLeft: 4 }}>
+                  {showInProgress ? '▲ 閉じる' : '▼ 開く'}
+                </span>
+              </button>
+              {showInProgress && inProgressItems.map((t, i) => (
+                <TaskRow key={t.id} t={t} catMap={catMap} eventMap={eventMap} navigate={navigate}
+                  borderBottom={i < inProgressItems.length - 1} />
+              ))}
             </div>
           )}
         </>
