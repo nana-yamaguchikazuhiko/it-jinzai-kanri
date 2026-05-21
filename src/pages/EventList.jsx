@@ -99,8 +99,8 @@ const catSortIdx = (ev) => {
 
 /* ── ビュー切替トグル ── */
 const VIEW_OPTS = [
-  { key: 'card',     label: 'カード' },
   { key: 'table',    label: 'コンパクト表' },
+  { key: 'card',     label: 'カード' },
   { key: 'kanban',   label: '区分カンバン' },
   { key: 'timeline', label: 'タイムラインHub' },
 ]
@@ -137,7 +137,7 @@ export default function EventList() {
   const [filterSmallCat, setFilterSmallCat] = useState('')
   const [filterStatus,   setFilterStatus  ] = useState('')
   const [searchText,     setSearchText    ] = useState('')
-  const [view,           setView          ] = useState('card')
+  const [view,           setView          ] = useState('table')
 
   // 自動ステータス計算
   const eventsWithStatus = useMemo(() => {
