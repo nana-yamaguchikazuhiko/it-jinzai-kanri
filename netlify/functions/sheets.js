@@ -134,6 +134,20 @@ function columnLetter(n) {
   return s
 }
 
+// OAuthトークンのキャッシュ（同一Functionインスタンス内で再利用）
+let tokenCache = { token: null, expiresAt: 0 }
+
+async function getCachedAccessToken(serviceAccountKey) {
+  const now = Math.floor(Date.now() / 1000)
+  // 有効期限の5分前まで使い回す
+  if (tokenCache.token && tokenCache.expiresAt - now > 300) {
+    return tokenCache.token
+  }
+  const token = await getAccessToken(serviceAccountKey)
+  tokenCache = { token, expiresAt: now + 3600 }
+  return token
+}
+
 // シート名→シートIDのキャッシュ
 let sheetIdCache = null
 async function getSheetId(token, sheetName) {
@@ -177,7 +191,7 @@ export const handler = async (event) => {
   }
 
   try {
-    const token = await getAccessToken(SERVICE_ACCOUNT_KEY)
+    const token = await getCachedAccessToken(SERVICE_ACCOUNT_KEY)
 
     // ── GET: シートデータ取得 ──
     if (event.httpMethod === 'GET') {
