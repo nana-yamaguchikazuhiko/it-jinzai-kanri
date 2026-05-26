@@ -83,7 +83,7 @@ export default function GoalManagement() {
       if (row.goal_id) {
         await updateById('goals', row.goal_id, { id: row.goal_id, fiscal_year: selectedYear, small_cat: row.small_cat, ...editForm })
       } else {
-        await appendRow('goals', [generateId(), selectedYear, row.small_cat, editForm.hold_count_goal || '', editForm.student_goal || '', editForm.company_goal || ''])
+        await appendRow('goals', { id: generateId(), fiscal_year: String(selectedYear), small_cat: row.small_cat, hold_count_goal: editForm.hold_count_goal || '', student_goal: editForm.student_goal || '', company_goal: editForm.company_goal || '' })
       }
       await reloadGoals(); setEditingId(null)
     } catch (e) { setError(e.message) }

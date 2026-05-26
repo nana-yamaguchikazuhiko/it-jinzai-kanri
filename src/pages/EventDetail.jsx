@@ -215,12 +215,12 @@ export default function EventDetail() {
     if (!newTaskForm.name) { alert('タスク名を入力してください'); return }
     setSavingTask(true)
     try {
-      await appendRow('tasks', [
-        generateId(), id, newTaskForm.name, newTaskForm.category,
-        newTaskForm.start_date, newTaskForm.due_date,
-        newTaskForm.assignee, newTaskForm.status, newTaskForm.memo,
-        newTaskForm.is_contact ? '1' : '', newTaskForm.contact_ids || '',
-      ])
+      await appendRow('tasks', {
+        id: generateId(), event_id: id, name: newTaskForm.name, category: newTaskForm.category,
+        start_date: newTaskForm.start_date, due_date: newTaskForm.due_date,
+        assignee: newTaskForm.assignee, status: newTaskForm.status, memo: newTaskForm.memo,
+        is_contact: newTaskForm.is_contact ? '1' : '', contact_ids: newTaskForm.contact_ids || '',
+      })
       reloadTasks()
       setAddingTask(false)
       setNewTaskForm({ name: '', category: '', start_date: '', due_date: '', assignee: '', status: '未着手', memo: '', is_contact: false, contact_ids: '' })
@@ -272,7 +272,7 @@ export default function EventDetail() {
       if (evResult) {
         await updateById('results', evResult.id, { ...evResult, ...resultForm, recorded_at: now })
       } else {
-        await appendRow('results', [generateId(), id, resultForm.student_applied, resultForm.company_applied, resultForm.student_actual, resultForm.company_actual, now])
+        await appendRow('results', { id: generateId(), event_id: id, student_applied: resultForm.student_applied, company_applied: resultForm.company_applied, student_actual: resultForm.student_actual, company_actual: resultForm.company_actual, recorded_at: now })
       }
       reloadResults(); setEditingResult(false)
     } catch (e) { alert('保存失敗: ' + e.message) }
@@ -285,14 +285,14 @@ export default function EventDetail() {
     if (evReport) {
       await updateById('event_reports', evReport.id, { ...evReport, ...form, updated_at: now })
     } else {
-      await appendRow('event_reports', [generateId(), id, form.overview, form.impression, form.speakers, form.ai_analysis || '', now, now])
+      await appendRow('event_reports', { id: generateId(), event_id: id, overview: form.overview, impression: form.impression, speakers: form.speakers, ai_analysis: form.ai_analysis || '', created_at: now, updated_at: now })
     }
     await reloadReports()
   }, [evReport, id, reloadReports])
 
   const handleAddSurveyColumn = useCallback(async (col, url) => {
     const order = surveyColumns.filter(c => c.event_id === id).length + 1
-    await appendRow('survey_columns', [generateId(), id, url, col.col_index, col.question_label, col.question_type, order])
+    await appendRow('survey_columns', { id: generateId(), event_id: id, spreadsheet_url: url, col_index: col.col_index, question_label: col.question_label, question_type: col.question_type, col_order: String(order) })
     await reloadSurveyColumns()
   }, [id, surveyColumns, reloadSurveyColumns])
 
@@ -306,7 +306,7 @@ export default function EventDetail() {
     if (!selectedSHId) return
     setSavingSH(true)
     try {
-      await appendRow('event_stakeholders', [generateId(), id, selectedSHId, selectedGroupOnAdd])
+      await appendRow('event_stakeholders', { id: generateId(), event_id: id, stakeholder_id: selectedSHId, group_id: selectedGroupOnAdd })
       reloadEventSH(); setAddingSH(false); setSelectedSHId(''); setSelectedGroupOnAdd('')
     } catch (e) { alert('紐づけ失敗: ' + e.message) }
     finally { setSavingSH(false) }
@@ -331,7 +331,7 @@ export default function EventDetail() {
     if (!newGroupName.trim()) return
     setSavingGroup(true)
     try {
-      await appendRow('sh_groups', [generateId(), newGroupName.trim()])
+      await appendRow('sh_groups', { id: generateId(), name: newGroupName.trim() })
       await reloadGroups(); setNewGroupName(''); setAddingGroup(false)
     } catch (e) { alert('グループ追加失敗: ' + e.message) }
     finally { setSavingGroup(false) }
@@ -1120,7 +1120,7 @@ function BudgetTab({ eventId, budgets, reload, readOnly = false, eventNameMap = 
       const now = new Date().toISOString()
       for (const r of draft) {
         if (!r.item.trim()) continue
-        await appendRow('event_budgets', [generateId(), eventId, r.item, r.type, r.amount || '0', now])
+        await appendRow('event_budgets', { id: generateId(), event_id: eventId, item: r.item, type: r.type, amount: r.amount || '0', created_at: now })
       }
       await reload()
       setEditing(false)
@@ -1270,7 +1270,7 @@ function DocsTab({ eventId, docs, reload }) {
     setSaving(true)
     try {
       const now = new Date().toISOString()
-      await appendRow('event_documents', [generateId(), eventId, form.name, form.url, form.memo, now])
+      await appendRow('event_documents', { id: generateId(), event_id: eventId, name: form.name, url: form.url, memo: form.memo, created_at: now })
       await reload()
       setForm({ name: '', url: '', memo: '' })
       setAdding(false)

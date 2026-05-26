@@ -1,9 +1,18 @@
-// Netlify Function: アンケートスプレッドシート → survey_responses シート 同期
-// survey_columns に設定されたURLと列マッピングをもとに、外部スプレッドシートからデータを取得して同期する
+// Netlify Function: アンケートスプレッドシート → survey_responses 同期
+// survey_columns に設定されたURLと列マッピングをもとに外部スプレッドシートからデータを取得して同期する
 
-const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID
 const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
-const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
+const SUPABASE_URL         = process.env.SUPABASE_URL
+const SUPABASE_KEY         = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SHEETS_BASE          = 'https://sheets.googleapis.com/v4/spreadsheets'
+
+function supabaseHeaders() {
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+  }
+}
 
 // ─── JWT / OAuth2 ─────────────────────────────────────────────────────────────
 
@@ -22,14 +31,15 @@ async function getAccessToken(serviceAccountKey) {
     exp: now + 3600,
     iat: now,
   }
-  const header = { alg: 'RS256', typ: 'JWT' }
-  const toSign = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`
-  const crypto = await import('node:crypto')
-  const privateKey = key.private_key.replace(/\\n/g, '\n')
-  const sign = crypto.createSign('RSA-SHA256')
+  const header  = { alg: 'RS256', typ: 'JWT' }
+  const toSign  = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`
+  const crypto  = await import('node:crypto')
+  const sign    = crypto.createSign('RSA-SHA256')
   sign.update(toSign)
-  const signature = sign.sign(privateKey, 'base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  const signature = sign.sign(key.private_key.replace(/\\n/g, '\n'), 'base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
   const jwt = `${toSign}.${signature}`
+
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -40,28 +50,7 @@ async function getAccessToken(serviceAccountKey) {
   return access_token
 }
 
-// ─── Sheets API ヘルパー ──────────────────────────────────────────────────────
-
-async function sheetsGet(token, spreadsheetId, sheetName) {
-  const range = sheetName ? encodeURIComponent(sheetName) : 'A:ZZ'
-  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${range}`
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new Error(`読み取り失敗 (${sheetName || spreadsheetId}): ${await res.text()}`)
-  return res.json()
-}
-
-async function sheetsAppendBatch(token, spreadsheetId, sheetName, rows) {
-  if (rows.length === 0) return
-  const range = encodeURIComponent(sheetName)
-  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: rows }),
-  })
-  if (!res.ok) throw new Error(`書き込み失敗: ${await res.text()}`)
-  return res.json()
-}
+// ─── Sheets API ───────────────────────────────────────────────────────────────
 
 function extractSpreadsheetId(url) {
   const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
@@ -70,12 +59,6 @@ function extractSpreadsheetId(url) {
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-}
-
-function toMap(values) {
-  if (!values || values.length < 2) return []
-  const [header, ...rows] = values
-  return rows.map(r => Object.fromEntries(header.map((h, i) => [h, (r[i] || '').toString()])))
 }
 
 // ─── Netlify Function ─────────────────────────────────────────────────────────
@@ -92,62 +75,70 @@ export const handler = async (event) => {
   try {
     const eventId = event.queryStringParameters?.event_id
     if (!eventId) throw new Error('event_id パラメータが必要です')
-    if (!SPREADSHEET_ID || !SERVICE_ACCOUNT_KEY) throw new Error('環境変数が設定されていません')
 
-    const token = await getAccessToken(SERVICE_ACCOUNT_KEY)
-
-    // 1. survey_columns からこのイベントの設定を取得
-    const columnsData = await sheetsGet(token, SPREADSHEET_ID, 'survey_columns')
-    const columns = toMap(columnsData.values).filter(c => c.event_id === eventId)
+    // 1. Supabase から survey_columns を取得
+    const colsRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/survey_columns?event_id=eq.${encodeURIComponent(eventId)}&select=*`,
+      { headers: supabaseHeaders() }
+    )
+    if (!colsRes.ok) throw new Error(`survey_columns 取得失敗: ${await colsRes.text()}`)
+    const columns = await colsRes.json()
     if (columns.length === 0) throw new Error('このイベントのアンケート列設定がありません。「+ 列を追加」から設定してください。')
 
-    // 2. アンケートスプレッドシートを読み取り
+    // 2. アンケートスプレッドシートを読み取り（Google Sheets API）
     const spreadsheetUrl = columns[0].spreadsheet_url
     const surveySpreadsheetId = extractSpreadsheetId(spreadsheetUrl)
     if (!surveySpreadsheetId) throw new Error('スプレッドシートURLが正しくありません')
 
-    const surveyData = await sheetsGet(token, surveySpreadsheetId)
-    const [, ...surveyRows] = surveyData.values || []  // 1行目ヘッダーをスキップ
+    const token = await getAccessToken(SERVICE_ACCOUNT_KEY)
+    const surveyRes = await fetch(`${SHEETS_BASE}/${surveySpreadsheetId}/values/A:ZZ`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!surveyRes.ok) throw new Error(`アンケート読み取り失敗: ${await surveyRes.text()}`)
+    const surveyData = await surveyRes.json()
+    const [, ...surveyRows] = surveyData.values || []
 
-    // 3. 既存の survey_responses を取得（重複チェック用）
-    const existingData = await sheetsGet(token, SPREADSHEET_ID, 'survey_responses')
-    const existingRows = toMap(existingData.values)
-    const existingKeys = new Set(
-      existingRows.filter(r => r.event_id === eventId).map(r => `${r.response_id}__${r.question_label}`)
+    // 3. Supabase から既存の survey_responses を取得（重複チェック用）
+    const existingRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/survey_responses?event_id=eq.${encodeURIComponent(eventId)}&select=response_id,question_label`,
+      { headers: supabaseHeaders() }
     )
+    if (!existingRes.ok) throw new Error(`survey_responses 取得失敗: ${await existingRes.text()}`)
+    const existing = await existingRes.json()
+    const existingKeys = new Set(existing.map(r => `${r.response_id}__${r.question_label}`))
 
     // 4. 新規行を構築
     const newRows = []
     surveyRows.forEach((row, idx) => {
-      const responseId = `row_${idx + 2}`  // 2行目から（1行目=ヘッダー）
+      const responseId = `row_${idx + 2}`
       columns.forEach(col => {
         const key = `${responseId}__${col.question_label}`
-        if (existingKeys.has(key)) return  // 既に同期済み
-        const colIdx = Number(col.col_index) - 1  // 0-indexed
-        const value = (row[colIdx] || '').toString().trim()
-        if (!value) return  // 空値はスキップ
-        newRows.push([generateId(), eventId, responseId, col.question_label, value])
+        if (existingKeys.has(key)) return
+        const colIdx = Number(col.col_index) - 1
+        const value  = (row[colIdx] || '').toString().trim()
+        if (!value) return
+        newRows.push({ id: generateId(), event_id: eventId, response_id: responseId, question_label: col.question_label, value })
       })
     })
 
-    // 5. 一括追加
-    await sheetsAppendBatch(token, SPREADSHEET_ID, 'survey_responses', newRows)
+    // 5. Supabase に一括挿入
+    if (newRows.length > 0) {
+      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/survey_responses`, {
+        method: 'POST',
+        headers: { ...supabaseHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify(newRows),
+      })
+      if (!insertRes.ok) throw new Error(`survey_responses 挿入失敗: ${await insertRes.text()}`)
+    }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        synced: newRows.length,
-        total: surveyRows.length,
-      }),
+      body: JSON.stringify({ synced: newRows.length, total: surveyRows.length }),
     }
 
   } catch (err) {
     console.error('sync-survey エラー:', err)
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: err.message }),
-    }
+    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }
   }
 }

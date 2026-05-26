@@ -73,7 +73,7 @@ export default function BudgetManagement() {
       if (catBudget) {
         await updateById('category_budgets', catBudget.id, { ...catBudget, amount: catBudgetForm.amount, note: catBudgetForm.note, updated_at: now })
       } else {
-        await appendRow('category_budgets', [generateId(), currentTab, catBudgetForm.amount, catBudgetForm.note, now])
+        await appendRow('category_budgets', { id: generateId(), small_cat: currentTab, amount: catBudgetForm.amount, fiscal_year: String(new Date().getFullYear()) })
       }
       await reloadCatBudgets()
       setEditingCatBudget(false)

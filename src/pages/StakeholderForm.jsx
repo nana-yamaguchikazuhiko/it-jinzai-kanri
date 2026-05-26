@@ -65,12 +65,7 @@ export default function StakeholderForm() {
       if (isEdit) {
         await updateById('stakeholders', id, form)
       } else {
-        await appendRow('stakeholders', [
-          generateId(), form.name, form.type, form.contact_name,
-          form.email, form.phone, form.address, form.contact_status,
-          form.next_action, form.next_action_date, form.memo,
-          form.department, form.position, form.institution_type,
-        ])
+        await appendRow('stakeholders', { id: generateId(), ...form })
       }
       navigate('/stakeholders')
     } catch (e) {

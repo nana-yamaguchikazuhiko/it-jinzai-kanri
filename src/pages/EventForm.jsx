@@ -198,18 +198,21 @@ export default function EventForm() {
           created_at: form.created_at,
         })
       } else {
-        await appendRow('events', [
-          eventId, form.name, form.big_cat, form.mid_cat, form.small_cat,
-          form.event_date, form.venue, form.student_goal, form.company_goal,
-          form.status || '計画中', form.student_form_url, now, form.company_form_url,
-          form.portal_company_url, form.portal_student_url, form.parent_id,
-        ])
+        await appendRow('events', {
+          id: eventId, name: form.name, big_cat: form.big_cat, mid_cat: form.mid_cat,
+          small_cat: form.small_cat, event_date: form.event_date, venue: form.venue,
+          student_goal: form.student_goal, company_goal: form.company_goal,
+          status: form.status || '計画中', student_form_url: form.student_form_url,
+          company_form_url: form.company_form_url, portal_company_url: form.portal_company_url,
+          portal_student_url: form.portal_student_url, parent_id: form.parent_id,
+        })
         for (const t of taskDrafts) {
           if (!t.name) continue
-          await appendRow('tasks', [
-            generateId(), eventId, t.name, t.category,
-            t.start_date, t.due_date, t.assignee, t.status, t.memo,
-          ])
+          await appendRow('tasks', {
+            id: generateId(), event_id: eventId, name: t.name, category: t.category,
+            start_date: t.start_date, due_date: t.due_date, assignee: t.assignee,
+            status: t.status, memo: t.memo,
+          })
         }
       }
 

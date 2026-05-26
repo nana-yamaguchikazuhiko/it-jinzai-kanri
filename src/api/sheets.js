@@ -1,4 +1,4 @@
-// Google Sheets API のフロントエンドラッパー
+// Supabase API のフロントエンドラッパー
 // 実際の呼び出しは netlify/functions/sheets.js で行う
 
 const API_BASE = '/.netlify/functions/sheets'
@@ -22,57 +22,39 @@ async function request(method, params) {
   return res.json()
 }
 
-// シートの全データを取得（1行目はヘッダー）
+// テーブルの全データを取得
 // 戻り値: { headers: string[], rows: object[] }
 export async function getSheet(sheetName) {
   const data = await request('GET', { sheet: sheetName })
-  if (!data.values || data.values.length === 0) {
-    return { headers: [], rows: [] }
-  }
-  const [rawHeaders, ...rawRows] = data.values
-  const headers = rawHeaders.map(h => h.trim())
-  const rows = rawRows.map((row, idx) => {
-    const obj = { _rowIndex: idx + 2 } // スプレッドシートの行番号（1ヘッダー + 1-indexed）
-    headers.forEach((h, i) => {
-      obj[h] = row[i] ?? ''
-    })
-    return obj
-  })
+  const rows = data.rows || []
+  if (rows.length === 0) return { headers: [], rows: [] }
+  const headers = Object.keys(rows[0])
   return { headers, rows }
 }
 
-// 末尾に新規行を追加
-// values: object（シートのヘッダーをキーとする）または配列
+// 新規行を追加
+// values: オブジェクト（列名をキーとする）
 export async function appendRow(sheetName, values) {
   return request('POST', { action: 'append', sheet: sheetName, values })
 }
 
-// 指定行を更新
-// rowIndex: スプレッドシートの行番号（2始まり）
-export async function updateRow(sheetName, rowIndex, values) {
-  return request('POST', { action: 'update', sheet: sheetName, rowIndex, values })
-}
-
-// 指定行を削除
-export async function deleteRow(sheetName, rowIndex) {
-  return request('POST', { action: 'delete', sheet: sheetName, rowIndex })
-}
-
-// 便利関数：idで行を検索して更新
+// idで行を更新
 export async function updateById(sheetName, id, values) {
-  const { headers, rows } = await getSheet(sheetName)
-  const row = rows.find(r => r.id === id)
-  if (!row) throw new Error(`ID ${id} が ${sheetName} に見つかりません`)
-  const rowValues = headers.map(h => values[h] ?? row[h] ?? '')
-  return updateRow(sheetName, row._rowIndex, rowValues)
+  return request('POST', { action: 'update', sheet: sheetName, id, values })
 }
 
-// 便利関数：idで行を削除
+// idで行を削除
 export async function deleteById(sheetName, id) {
-  const { rows } = await getSheet(sheetName)
-  const row = rows.find(r => r.id === id)
-  if (!row) throw new Error(`ID ${id} が ${sheetName} に見つかりません`)
-  return deleteRow(sheetName, row._rowIndex)
+  return request('POST', { action: 'delete', sheet: sheetName, id })
+}
+
+// 後方互換（内部的にupdateByIdと同じ）
+export async function updateRow(sheetName, id, values) {
+  return updateById(sheetName, id, values)
+}
+
+export async function deleteRow(sheetName, id) {
+  return deleteById(sheetName, id)
 }
 
 // UUIDライクなID生成

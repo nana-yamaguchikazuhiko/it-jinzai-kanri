@@ -109,11 +109,7 @@ export default function FieldNote() {
           title: form.title, content: form.content, tags: form.tags,
         })
       } else {
-        await appendRow('field_notes', [
-          generateId(), form.date, form.category, form.stakeholder_id,
-          form.source, form.title, form.content, form.tags,
-          new Date().toISOString(),
-        ])
+        await appendRow('field_notes', { id: generateId(), ...form })
       }
       await reload()
       closeForm()

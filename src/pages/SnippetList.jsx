@@ -75,7 +75,7 @@ export default function SnippetList() {
         const target = snippets.find(s => s.id === editingId)
         await updateById('snippets', editingId, { ...target, ...form, updated_at: now })
       } else {
-        await appendRow('snippets', [generateId(), form.title, form.description, form.category, form.code, now, now])
+        await appendRow('snippets', { id: generateId(), title: form.title, description: form.description, category: form.category, code: form.code, created_at: now })
       }
       await reload()
       handleCancel()

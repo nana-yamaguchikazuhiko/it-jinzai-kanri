@@ -59,10 +59,10 @@ export default function TaskTemplateManager() {
     setSaving(true)
     try {
       if (t._isDefault) {
-        await appendRow('task_templates', [
-          generateId(), editForm.small_cat || t.small_cat,
-          editForm.task_name, editForm.category, editForm.days_before,
-        ])
+        await appendRow('task_templates', {
+          id: generateId(), small_cat: editForm.small_cat || t.small_cat,
+          task_name: editForm.task_name, category: editForm.category, days_before: editForm.days_before,
+        })
       } else {
         await updateById('task_templates', t.id, {
           id: t.id, small_cat: t.small_cat,
@@ -85,7 +85,7 @@ export default function TaskTemplateManager() {
     if (!newForm.small_cat || !newForm.task_name) { setError('小分類とタスク名は必須です'); return }
     setSaving(true); setError(null)
     try {
-      await appendRow('task_templates', [generateId(), newForm.small_cat, newForm.task_name, newForm.category, newForm.days_before])
+      await appendRow('task_templates', { id: generateId(), ...newForm })
       await reload(); setAddingNew(false); setNewForm({ ...EMPTY_TEMPLATE })
     } catch (e) { setError(e.message) }
     finally { setSaving(false) }
