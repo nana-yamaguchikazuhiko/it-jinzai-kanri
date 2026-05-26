@@ -9,12 +9,12 @@ export function useSheets(sheetName) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (forceRefresh = false) => {
     if (!sheetName) return
     setLoading(true)
     setError(null)
     try {
-      const result = await getSheet(sheetName)
+      const result = await getSheet(sheetName, { forceRefresh })
       setHeaders(result.headers)
       setRows(result.rows)
     } catch (e) {
@@ -28,5 +28,6 @@ export function useSheets(sheetName) {
     load()
   }, [load])
 
-  return { rows, headers, loading, error, reload: load }
+  // reload() はキャッシュをスキップして最新データを取得
+  return { rows, headers, loading, error, reload: () => load(true) }
 }
