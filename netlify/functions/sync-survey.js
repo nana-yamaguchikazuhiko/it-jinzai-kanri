@@ -85,18 +85,15 @@ export const handler = async (event) => {
     const columns = await colsRes.json()
     if (columns.length === 0) throw new Error('このイベントのアンケート列設定がありません。「+ 列を追加」から設定してください。')
 
-    // 2. アンケートスプレッドシートを読み取り（Google Sheets API）
-    const spreadsheetUrl = columns[0].spreadsheet_url
-    const surveySpreadsheetId = extractSpreadsheetId(spreadsheetUrl)
-    if (!surveySpreadsheetId) throw new Error('スプレッドシートURLが正しくありません')
-
-    const token = await getAccessToken(SERVICE_ACCOUNT_KEY)
-    const surveyRes = await fetch(`${SHEETS_BASE}/${surveySpreadsheetId}/values/A:ZZ`, {
-      headers: { Authorization: `Bearer ${token}` },
+    // 2. URLごとにグループ分け
+    const urlGroups = {}
+    columns.forEach(col => {
+      const url = (col.spreadsheet_url || '').trim()
+      if (!url) return
+      if (!urlGroups[url]) urlGroups[url] = []
+      urlGroups[url].push(col)
     })
-    if (!surveyRes.ok) throw new Error(`アンケート読み取り失敗: ${await surveyRes.text()}`)
-    const surveyData = await surveyRes.json()
-    const [, ...surveyRows] = surveyData.values || []
+    if (Object.keys(urlGroups).length === 0) throw new Error('スプレッドシートURLが設定されていません')
 
     // 3. Supabase から既存の survey_responses を取得（重複チェック用）
     const existingRes = await fetch(
@@ -107,19 +104,37 @@ export const handler = async (event) => {
     const existing = await existingRes.json()
     const existingKeys = new Set(existing.map(r => `${r.response_id}__${r.question_label}`))
 
-    // 4. 新規行を構築
+    // 4. 各スプレッドシートを読み取って新規行を構築
+    const token = await getAccessToken(SERVICE_ACCOUNT_KEY)
     const newRows = []
-    surveyRows.forEach((row, idx) => {
-      const responseId = `row_${idx + 2}`
-      columns.forEach(col => {
-        const key = `${responseId}__${col.question_label}`
-        if (existingKeys.has(key)) return
-        const colIdx = Number(col.col_index) - 1
-        const value  = (row[colIdx] || '').toString().trim()
-        if (!value) return
-        newRows.push({ id: generateId(), event_id: eventId, response_id: responseId, question_label: col.question_label, value })
+    let totalRows = 0
+
+    for (const [spreadsheetUrl, cols] of Object.entries(urlGroups)) {
+      const surveySpreadsheetId = extractSpreadsheetId(spreadsheetUrl)
+      if (!surveySpreadsheetId) continue
+
+      const surveyRes = await fetch(`${SHEETS_BASE}/${surveySpreadsheetId}/values/A:ZZ`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
-    })
+      if (!surveyRes.ok) throw new Error(`アンケート読み取り失敗 (${spreadsheetUrl}): ${await surveyRes.text()}`)
+      const surveyData = await surveyRes.json()
+      const [, ...surveyRows] = surveyData.values || []
+      totalRows += surveyRows.length
+
+      // URLプレフィックスを response_id に付与して別スプレッドシート間の衝突を防ぐ
+      const urlKey = surveySpreadsheetId.slice(-6)
+      surveyRows.forEach((row, idx) => {
+        const responseId = `${urlKey}_row_${idx + 2}`
+        cols.forEach(col => {
+          const key = `${responseId}__${col.question_label}`
+          if (existingKeys.has(key)) return
+          const colIdx = Number(col.col_index) - 1
+          const value  = (row[colIdx] || '').toString().trim()
+          if (!value) return
+          newRows.push({ id: generateId(), event_id: eventId, response_id: responseId, question_label: col.question_label, value })
+        })
+      })
+    }
 
     // 5. Supabase に一括挿入
     if (newRows.length > 0) {
@@ -134,7 +149,7 @@ export const handler = async (event) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ synced: newRows.length, total: surveyRows.length }),
+      body: JSON.stringify({ synced: newRows.length, total: totalRows }),
     }
 
   } catch (err) {

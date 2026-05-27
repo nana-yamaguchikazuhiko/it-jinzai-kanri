@@ -301,6 +301,23 @@ export default function EventDetail() {
     await reloadSurveyColumns()
   }, [reloadSurveyColumns])
 
+  const handleAddSurveyColumns = useCallback(async (cols, url) => {
+    const baseOrder = surveyColumns.filter(c => c.event_id === id).length
+    for (let i = 0; i < cols.length; i++) {
+      const col = cols[i]
+      await appendRow('survey_columns', { id: generateId(), event_id: id, spreadsheet_url: url, col_index: col.col_index, question_label: col.question_label, question_type: col.question_type, col_order: String(baseOrder + i + 1) })
+    }
+    await reloadSurveyColumns()
+  }, [id, surveyColumns, reloadSurveyColumns])
+
+  const handleUpdateSurveyColumnsUrl = useCallback(async (oldUrl, newUrl) => {
+    const cols = surveyColumns.filter(c => c.event_id === id && c.spreadsheet_url === oldUrl)
+    for (const col of cols) {
+      await updateById('survey_columns', col.id, { ...col, spreadsheet_url: newUrl })
+    }
+    await reloadSurveyColumns()
+  }, [id, surveyColumns, reloadSurveyColumns])
+
   // ── SH紐づけ ─────────────────────────────────────────
   const handleAddSH = async () => {
     if (!selectedSHId) return
@@ -964,7 +981,9 @@ export default function EventDetail() {
               surveyResponses={surveyResponses.filter(r => r.event_id === id)}
               onSaveReport={handleSaveReport}
               onAddSurveyColumn={handleAddSurveyColumn}
+              onAddSurveyColumns={handleAddSurveyColumns}
               onDeleteSurveyColumn={handleDeleteSurveyColumn}
+              onUpdateSurveyColumnsUrl={handleUpdateSurveyColumnsUrl}
               reloadSurveyResponses={reloadSurveyResponses}
               reloadSurveyColumns={reloadSurveyColumns}
               reloadFormSync={reloadFormSync}
@@ -1373,18 +1392,21 @@ function DocsTab({ eventId, docs, reload }) {
 // ─── 分析・レポートタブ ────────────────────────────────────────────────────────
 
 function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses,
-  onSaveReport, onAddSurveyColumn, onDeleteSurveyColumn, reloadSurveyResponses, reloadSurveyColumns, reloadFormSync }) {
+  onSaveReport, onAddSurveyColumn, onAddSurveyColumns, onDeleteSurveyColumn, onUpdateSurveyColumnsUrl,
+  reloadSurveyResponses, reloadSurveyColumns, reloadFormSync }) {
 
   const C = { primary: '#06b6d4', text: '#1e2d3d', muted: '#94a3b8', secondary: '#64748b', border: '#e8edf2' }
 
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ overview: '', impression: '', speakers: '' })
   const [saving, setSaving] = useState(false)
-  const [addingColumn, setAddingColumn] = useState(false)
-  const [newCol, setNewCol] = useState({ col_index: '', question_label: '', question_type: 'select' })
-  const [newUrl, setNewUrl] = useState('')
+  const [addingSheetUrl, setAddingSheetUrl] = useState(null)
+  const [pendingCols, setPendingCols] = useState([{ col_index: '', question_label: '', question_type: 'select' }])
+  const [newSheetUrl, setNewSheetUrl] = useState('')
+  const [editingUrlFor, setEditingUrlFor] = useState(null)
+  const [newUrlValue, setNewUrlValue] = useState('')
   const [syncing, setSyncing] = useState(false)
-  const [savingCol, setSavingCol] = useState(false)
+  const [savingCols, setSavingCols] = useState(false)
   const [editingAnswer, setEditingAnswer] = useState(null) // { id, value }
   const [savingAnswer, setSavingAnswer] = useState(false)
   const [expandedEditLabel, setExpandedEditLabel] = useState(null) // 回答編集を展開中の質問ラベル
@@ -1452,7 +1474,15 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
     finally { setSavingAI(false) }
   }
 
-  const existingUrl = surveyColumns[0]?.spreadsheet_url || ''
+  const colsByUrl = useMemo(() => {
+    const groups = {}
+    surveyColumns.forEach(col => {
+      const url = col.spreadsheet_url || ''
+      if (!groups[url]) groups[url] = []
+      groups[url].push(col)
+    })
+    return groups
+  }, [surveyColumns])
 
   const schoolCounts = useMemo(() => {
     const rows = formSync.filter(r => r.event_id === eventId && r.type === 'student' && r.school_name)
@@ -1494,6 +1524,16 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
         })
         return { label, type: 'multi', counts: Object.entries(counts).sort((a, b) => b[1] - a[1]), total: answers.length }
       }
+      if (col?.question_type === 'scale') {
+        const counts = {}
+        answers.forEach(a => { counts[a] = (counts[a] || 0) + 1 })
+        const sorted = Object.entries(counts).sort((a, b) => {
+          const na = Number(a[0]), nb = Number(b[0])
+          if (!isNaN(na) && !isNaN(nb)) return na - nb
+          return a[0].localeCompare(b[0])
+        })
+        return { label, type: 'scale', counts: sorted, total: answers.length }
+      }
       // text: 行オブジェクトごと保持（編集用にidが必要）
       return { label, type: 'text', answerRows, total: answerRows.length }
     })
@@ -1521,18 +1561,30 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
     finally { setSaving(false) }
   }
 
-  const handleAddColumn = async () => {
-    if (!newCol.col_index || !newCol.question_label) { alert('列番号と質問ラベルを入力してください'); return }
-    const url = existingUrl || newUrl
+  const handleSaveCols = async () => {
+    const url = addingSheetUrl === '__new__' ? newSheetUrl : addingSheetUrl
     if (!url) { alert('スプレッドシートURLを入力してください'); return }
-    setSavingCol(true)
+    const valid = pendingCols.filter(c => c.col_index && c.question_label)
+    if (valid.length === 0) { alert('列番号と質問ラベルを入力してください'); return }
+    setSavingCols(true)
     try {
-      await onAddSurveyColumn(newCol, url)
-      setNewCol({ col_index: '', question_label: '', question_type: 'select' })
-      setNewUrl('')
-      setAddingColumn(false)
+      await onAddSurveyColumns(valid, url)
+      setPendingCols([{ col_index: '', question_label: '', question_type: 'select' }])
+      setNewSheetUrl('')
+      setAddingSheetUrl(null)
     } catch (e) { alert('追加失敗: ' + e.message) }
-    finally { setSavingCol(false) }
+    finally { setSavingCols(false) }
+  }
+
+  const handleUpdateUrl = async () => {
+    if (!newUrlValue) { alert('URLを入力してください'); return }
+    setSavingCols(true)
+    try {
+      await onUpdateSurveyColumnsUrl(editingUrlFor, newUrlValue)
+      setEditingUrlFor(null)
+      setNewUrlValue('')
+    } catch (e) { alert('URL変更失敗: ' + e.message) }
+    finally { setSavingCols(false) }
   }
 
   const handleSync = async () => {
@@ -1695,8 +1747,9 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
           <span>アンケート集計</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#f1f5f9', color: C.secondary, border: 'none', cursor: 'pointer' }}
-              onClick={() => setAddingColumn(true)}>
-              + 列を追加
+              onClick={() => { setAddingSheetUrl('__new__'); setPendingCols([{ col_index: '', question_label: '', question_type: 'select' }]) }}
+              disabled={addingSheetUrl !== null}>
+              + スプレッドシートを追加
             </button>
             <button style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', opacity: syncing ? 0.6 : 1 }}
               onClick={handleSync} disabled={syncing}>
@@ -1705,77 +1758,150 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
           </div>
         </div>
 
-        {/* スプレッドシートURL表示 */}
-        {existingUrl && (
-          <div style={{ marginBottom: 14, padding: '8px 12px', background: '#f8fafc', borderRadius: 6, fontSize: 11, color: C.secondary, wordBreak: 'break-all' }}>
-            📊 {existingUrl}
-          </div>
-        )}
+        {/* 登録済みスプレッドシートグループ */}
+        {Object.entries(colsByUrl).map(([url, cols]) => (
+          <div key={url} style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+            {/* URL ヘッダー */}
+            <div style={{ padding: '8px 12px', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {editingUrlFor === url ? (
+                <>
+                  <input type="url" value={newUrlValue} onChange={e => setNewUrlValue(e.target.value)}
+                    style={{ flex: 1, fontSize: 11, padding: '4px 8px', border: `1px solid ${C.border}`, borderRadius: 4 }} />
+                  <button style={{ fontSize: 11, padding: '3px 10px', borderRadius: 5, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    onClick={handleUpdateUrl} disabled={savingCols}>{savingCols ? '保存中...' : '保存'}</button>
+                  <button style={{ fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
+                    onClick={() => { setEditingUrlFor(null); setNewUrlValue('') }}>取消</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 11, color: C.secondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    📊 {url || '（URLなし）'}
+                  </span>
+                  <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    onClick={() => { setEditingUrlFor(url); setNewUrlValue(url) }}>URLを変更</button>
+                </>
+              )}
+            </div>
 
-        {/* 列追加フォーム */}
-        {addingColumn && (
-          <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', marginBottom: 20 }}>
-            {!existingUrl && (
-              <div style={{ marginBottom: 12 }}>
-                <label className="form-label">アンケートスプレッドシートURL</label>
-                <input type="url" className="form-input" value={newUrl} onChange={e => setNewUrl(e.target.value)}
-                  placeholder="https://docs.google.com/spreadsheets/..." />
-                <p style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>※ このスプレッドシートをサービスアカウントと共有してください</p>
+            {/* 列タグ一覧 */}
+            <div style={{ padding: '8px 12px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {[...cols].sort((a, b) => Number(a.col_order) - Number(b.col_order)).map(col => (
+                <span key={col.id} style={{ fontSize: 11, padding: '4px 10px', background: '#f1f5f9', borderRadius: 4, color: C.secondary, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {col.col_index}列: {col.question_label}
+                  <span style={{ fontSize: 10, color: C.muted }}>
+                    ({col.question_type === 'select' ? '集計' : col.question_type === 'scale' ? '均等' : col.question_type === 'multi' ? '複数' : col.question_type === 'text_agg' ? '自由グラフ' : '自由'})
+                  </span>
+                  <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                    onClick={() => { if (confirm(`「${col.question_label}」の設定を削除しますか？`)) onDeleteSurveyColumn(col.id) }}>×</button>
+                </span>
+              ))}
+            </div>
+
+            {/* この表に列を追加フォーム */}
+            {addingSheetUrl === url ? (
+              <div style={{ padding: '12px 12px 14px', borderTop: `1px solid ${C.border}`, background: '#fafbfc' }}>
+                {(() => {
+                  const rows = pendingCols
+                  return (
+                    <>
+                      {rows.map((col, idx) => (
+                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 140px 24px', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                          <input type="number" className="form-input" min="1" value={col.col_index}
+                            onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, col_index: e.target.value } : c))}
+                            placeholder="列番号" style={{ fontSize: 12 }} />
+                          <input type="text" className="form-input" value={col.question_label}
+                            onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_label: e.target.value } : c))}
+                            placeholder="質問ラベル（表示名）" style={{ fontSize: 12 }} />
+                          <select className="form-select" value={col.question_type}
+                            onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_type: e.target.value } : c))}
+                            style={{ fontSize: 12 }}>
+                            <option value="select">選択肢（件数集計）</option>
+                            <option value="scale">均等目盛（値順）</option>
+                            <option value="multi">複数選択（個別集計）</option>
+                            <option value="text_agg">自由記述（グラフ集計）</option>
+                            <option value="text">自由記述（一覧）</option>
+                          </select>
+                          {rows.length > 1 && (
+                            <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                              onClick={() => setPendingCols(p => p.filter((_, i) => i !== idx))}>×</button>
+                          )}
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                        <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                          onClick={() => setPendingCols(p => [...p, { col_index: '', question_label: '', question_type: 'select' }])}>
+                          + 行を追加
+                        </button>
+                        <button style={{ padding: '4px 14px', borderRadius: 5, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                          onClick={handleSaveCols} disabled={savingCols}>{savingCols ? '保存中...' : '登録'}</button>
+                        <button style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
+                          onClick={() => { setAddingSheetUrl(null); setPendingCols([{ col_index: '', question_label: '', question_type: 'select' }]) }}>キャンセル</button>
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+            ) : (
+              <div style={{ padding: '4px 12px 10px' }}>
+                <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  onClick={() => { setAddingSheetUrl(url); setPendingCols([{ col_index: '', question_label: '', question_type: 'select' }]) }}
+                  disabled={addingSheetUrl !== null}>
+                  + この表に列を追加
+                </button>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 140px', gap: 10, alignItems: 'end' }}>
-              <div>
-                <label className="form-label">列番号</label>
-                <input type="number" className="form-input" min="1" value={newCol.col_index}
-                  onChange={e => setNewCol(p => ({ ...p, col_index: e.target.value }))} placeholder="例: 2" />
-              </div>
-              <div>
-                <label className="form-label">質問ラベル（表示名）</label>
-                <input type="text" className="form-input" value={newCol.question_label}
-                  onChange={e => setNewCol(p => ({ ...p, question_label: e.target.value }))} placeholder="例: 満足度" />
-              </div>
-              <div>
-                <label className="form-label">タイプ</label>
-                <select className="form-select" value={newCol.question_type}
-                  onChange={e => setNewCol(p => ({ ...p, question_type: e.target.value }))}>
-                  <option value="select">選択肢（件数集計）</option>
-                  <option value="multi">複数選択（個別集計）</option>
-                  <option value="text_agg">自由記述（グラフ集計・編集可）</option>
-                  <option value="text">自由記述（一覧・編集可）</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button style={{ padding: '6px 18px', borderRadius: 6, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                onClick={handleAddColumn} disabled={savingCol}>
-                {savingCol ? '追加中...' : '追加'}
-              </button>
-              <button style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
-                onClick={() => { setAddingColumn(false); setNewCol({ col_index: '', question_label: '', question_type: 'select' }); setNewUrl('') }}>
-                キャンセル
-              </button>
-            </div>
           </div>
-        )}
+        ))}
 
-        {/* 設定済み列タグ */}
-        {surveyColumns.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
-            {surveyColumns.sort((a, b) => Number(a.col_order) - Number(b.col_order)).map(col => (
-              <span key={col.id} style={{ fontSize: 11, padding: '4px 10px', background: '#f1f5f9', borderRadius: 4, color: C.secondary, display: 'flex', alignItems: 'center', gap: 5 }}>
-                {col.col_index}列: {col.question_label}
-                <span style={{ fontSize: 10, color: C.muted }}>({col.question_type === 'select' ? '集計' : col.question_type === 'multi' ? '複数' : col.question_type === 'text_agg' ? '自由グラフ' : '自由'})</span>
-                <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
-                  onClick={() => { if (confirm(`「${col.question_label}」の設定を削除しますか？`)) onDeleteSurveyColumn(col.id) }}>×</button>
-              </span>
+        {/* 新規スプレッドシート追加フォーム */}
+        {addingSheetUrl === '__new__' && (
+          <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', marginBottom: 16 }}>
+            <div style={{ marginBottom: 10 }}>
+              <label className="form-label">アンケートスプレッドシートURL</label>
+              <input type="url" className="form-input" value={newSheetUrl} onChange={e => setNewSheetUrl(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/..." />
+              <p style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>※ このスプレッドシートをサービスアカウントと共有してください</p>
+            </div>
+            {pendingCols.map((col, idx) => (
+              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 140px 24px', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                <input type="number" className="form-input" min="1" value={col.col_index}
+                  onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, col_index: e.target.value } : c))}
+                  placeholder="列番号" style={{ fontSize: 12 }} />
+                <input type="text" className="form-input" value={col.question_label}
+                  onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_label: e.target.value } : c))}
+                  placeholder="質問ラベル（表示名）" style={{ fontSize: 12 }} />
+                <select className="form-select" value={col.question_type}
+                  onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_type: e.target.value } : c))}
+                  style={{ fontSize: 12 }}>
+                  <option value="select">選択肢（件数集計）</option>
+                  <option value="scale">均等目盛（値順）</option>
+                  <option value="multi">複数選択（個別集計）</option>
+                  <option value="text_agg">自由記述（グラフ集計）</option>
+                  <option value="text">自由記述（一覧）</option>
+                </select>
+                {pendingCols.length > 1 && (
+                  <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    onClick={() => setPendingCols(p => p.filter((_, i) => i !== idx))}>×</button>
+                )}
+              </div>
             ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+              <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                onClick={() => setPendingCols(p => [...p, { col_index: '', question_label: '', question_type: 'select' }])}>
+                + 行を追加
+              </button>
+              <button style={{ padding: '4px 14px', borderRadius: 5, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                onClick={handleSaveCols} disabled={savingCols}>{savingCols ? '保存中...' : '登録'}</button>
+              <button style={{ fontSize: 12, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
+                onClick={() => { setAddingSheetUrl(null); setPendingCols([{ col_index: '', question_label: '', question_type: 'select' }]); setNewSheetUrl('') }}>キャンセル</button>
+            </div>
           </div>
         )}
 
         {/* ガイダンス */}
-        {surveyColumns.length === 0 && !addingColumn && (
+        {surveyColumns.length === 0 && !addingSheetUrl && (
           <p style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: '24px 0' }}>
-            「+ 列を追加」からアンケートスプレッドシートのURLと列設定を登録してください
+            「+ スプレッドシートを追加」からアンケートスプレッドシートのURLと列設定を登録してください
           </p>
         )}
 
@@ -1810,14 +1936,14 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                   <span style={{ fontSize: 14, color: C.muted, cursor: 'grab', letterSpacing: '-1px', userSelect: 'none' }}>⠿⠿</span>
                   <span>{q.label}</span>
                   <span style={{ fontSize: 11, color: C.muted, fontWeight: 400 }}>（{q.total}件）</span>
-                  {(q.type === 'select' || q.type === 'multi' || q.type === 'text_agg') && (
+                  {(q.type === 'select' || q.type === 'scale' || q.type === 'multi' || q.type === 'text_agg') && (
                     <button style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', borderRadius: 5, border: `1px solid ${C.border}`, background: '#fff', color: C.secondary, cursor: 'pointer' }}
                       onClick={() => toggleChart(q.label)}>
                       {chartTypes[q.label] === 'pie' ? '棒グラフ' : '円グラフ'}
                     </button>
                   )}
                 </div>
-                {(q.type === 'select' || q.type === 'multi' || q.type === 'text_agg') ? (
+                {(q.type === 'select' || q.type === 'scale' || q.type === 'multi' || q.type === 'text_agg') ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {q.type === 'multi' && (
                       <p style={{ fontSize: 11, color: C.muted, margin: '0 0 4px', fontStyle: 'italic' }}>
