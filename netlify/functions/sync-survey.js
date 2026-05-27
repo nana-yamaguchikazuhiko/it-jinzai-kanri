@@ -78,7 +78,7 @@ export const handler = async (event) => {
 
     // 1. Supabase から survey_columns を取得
     const colsRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/survey_columns?event_id=eq.${encodeURIComponent(eventId)}&select=*`,
+      `${SUPABASE_URL}/rest/v1/survey_columns?event_id=eq.${encodeURIComponent(eventId)}&select=*&order=col_order`,
       { headers: supabaseHeaders() }
     )
     if (!colsRes.ok) throw new Error(`survey_columns 取得失敗: ${await colsRes.text()}`)
@@ -100,7 +100,7 @@ export const handler = async (event) => {
 
     // 3. Supabase から既存の survey_responses を取得（重複チェック用）
     const existingRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/survey_responses?event_id=eq.${encodeURIComponent(eventId)}&select=response_id,question_label`,
+      `${SUPABASE_URL}/rest/v1/survey_responses?event_id=eq.${encodeURIComponent(eventId)}&select=response_id,question_label&limit=50000`,
       { headers: supabaseHeaders() }
     )
     if (!existingRes.ok) throw new Error(`survey_responses 取得失敗: ${await existingRes.text()}`)

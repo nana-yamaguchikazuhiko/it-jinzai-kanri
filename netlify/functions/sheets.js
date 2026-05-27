@@ -38,8 +38,8 @@ export const handler = async (event) => {
       const sheet = event.queryStringParameters?.sheet
       if (!sheet) return { statusCode: 400, headers, body: JSON.stringify({ error: 'sheet パラメータが必要です' }) }
 
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${sheet}?select=*`, {
-        headers: supabaseHeaders(),
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${sheet}?select=*&limit=10000&order=id`, {
+        headers: { ...supabaseHeaders(), 'Prefer': 'count=none' },
       })
       if (!res.ok) throw new Error(`Supabase GET 失敗: ${await res.text()}`)
       const rows = await res.json()
