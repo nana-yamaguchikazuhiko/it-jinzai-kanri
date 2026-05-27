@@ -234,9 +234,9 @@ export default function EventDetail() {
     setGeneratingPdf(true)
     try {
       const container = reportRef.current
-      const HQ_SCALE = 2
+      const HQ_SCALE = 1.5
 
-      const canvas = await html2canvas(container, { scale: HQ_SCALE, useCORS: true, backgroundColor: '#f0f4f8' })
+      const canvas = await html2canvas(container, { scale: HQ_SCALE, useCORS: true, backgroundColor: '#ffffff' })
 
       const pdf = new jsPDF('p', 'mm', 'a4')
       const pageW = pdf.internal.pageSize.getWidth()
@@ -293,10 +293,11 @@ export default function EventDetail() {
         const sh = Math.round((slice.end - slice.start) * HQ_SCALE)
         offscreen.width = canvas.width
         offscreen.height = sh
-        ctx.clearRect(0, 0, offscreen.width, sh)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, offscreen.width, sh)
         ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh)
         const sliceHeightMm = (sh / canvas.width) * printW
-        pdf.addImage(offscreen.toDataURL('image/png'), 'PNG', margin, margin, printW, sliceHeightMm)
+        pdf.addImage(offscreen.toDataURL('image/jpeg', 0.90), 'JPEG', margin, margin, printW, sliceHeightMm)
       })
 
       pdf.save(`${event?.name || 'report'}_分析レポート.pdf`)
