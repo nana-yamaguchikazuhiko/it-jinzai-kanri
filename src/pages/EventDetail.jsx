@@ -233,24 +233,72 @@ export default function EventDetail() {
     if (!reportRef.current) return
     setGeneratingPdf(true)
     try {
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#f0f4f8' })
-      const imgData = canvas.toDataURL('image/png')
+      const container = reportRef.current
+      const HQ_SCALE = 2
+
+      const canvas = await html2canvas(container, { scale: HQ_SCALE, useCORS: true, backgroundColor: '#f0f4f8' })
+
       const pdf = new jsPDF('p', 'mm', 'a4')
       const pageW = pdf.internal.pageSize.getWidth()
       const pageH = pdf.internal.pageSize.getHeight()
       const margin = 10
-      const imgW = pageW - margin * 2
-      const imgH = (canvas.height / canvas.width) * imgW
-      let y = margin
-      let remaining = imgH
-      pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH)
-      remaining -= (pageH - margin * 2)
-      while (remaining > 0) {
-        pdf.addPage()
-        y = -(imgH - remaining) - margin
-        pdf.addImage(imgData, 'PNG', margin, y, imgW, imgH)
-        remaining -= (pageH - margin * 2)
+      const printW = pageW - margin * 2
+      const printH = pageH - margin * 2
+
+      // CSS pixels → mm 変換係数
+      const scaleFactor = printW / container.offsetWidth
+      // 1ページに収まる高さ（CSS px 単位）
+      const pageHeightCSS = printH / scaleFactor
+      // canvas が表す実際の高さ（CSS px）
+      const totalHeightCSS = canvas.height / HQ_SCALE
+
+      // 要素境界を「安全な改ページ候補」として収集（2階層まで）
+      const containerRect = container.getBoundingClientRect()
+      const breakCandidates = new Set([0])
+      const collectBreaks = (els) => {
+        els.forEach(el => {
+          const r = el.getBoundingClientRect()
+          const top = Math.round(r.top - containerRect.top)
+          const bottom = Math.round(r.bottom - containerRect.top)
+          if (top > 0) breakCandidates.add(top)
+          if (bottom > 0) breakCandidates.add(bottom)
+        })
       }
+      collectBreaks(Array.from(container.children))
+      collectBreaks(Array.from(container.querySelectorAll(':scope > * > *')))
+      const candidateList = [...breakCandidates].sort((a, b) => a - b)
+
+      // ページスライスを構築（各スライスは要素境界で切れる）
+      const slices = []
+      let pageStart = 0
+      while (pageStart < totalHeightCSS) {
+        const idealEnd = pageStart + pageHeightCSS
+        if (idealEnd >= totalHeightCSS) {
+          slices.push({ start: pageStart, end: totalHeightCSS })
+          break
+        }
+        // idealEnd 以前で最も遅い安全候補（最低 50px は進む）
+        const safeBreak = candidateList.filter(y => y > pageStart + 50 && y <= idealEnd).pop()
+        const actualEnd = safeBreak ?? Math.round(idealEnd)
+        slices.push({ start: pageStart, end: actualEnd })
+        pageStart = actualEnd
+      }
+
+      // 各スライスをキャンバスから切り出して PDF ページへ
+      const offscreen = document.createElement('canvas')
+      const ctx = offscreen.getContext('2d')
+      slices.forEach((slice, i) => {
+        if (i > 0) pdf.addPage()
+        const sy = Math.round(slice.start * HQ_SCALE)
+        const sh = Math.round((slice.end - slice.start) * HQ_SCALE)
+        offscreen.width = canvas.width
+        offscreen.height = sh
+        ctx.clearRect(0, 0, offscreen.width, sh)
+        ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh)
+        const sliceHeightMm = (sh / canvas.width) * printW
+        pdf.addImage(offscreen.toDataURL('image/png'), 'PNG', margin, margin, printW, sliceHeightMm)
+      })
+
       pdf.save(`${event?.name || 'report'}_分析レポート.pdf`)
       setShowPdfModal(false)
     } catch (e) { alert('PDF生成失敗: ' + e.message) }
