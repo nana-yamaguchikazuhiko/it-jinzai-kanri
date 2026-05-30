@@ -17,15 +17,11 @@ const EMPTY_SH = {
   email: '',
   phone: '',
   address: '',
-  contact_status: '未連絡',
-  next_action: '',
-  next_action_date: '',
   memo: '',
 }
 
 const SH_TYPES = ['会員企業', '委員会企業', '教育機関', '行政', '求職者', 'その他']
 const INSTITUTION_TYPES = ['大学・高専_情報系', '大学・短大_非情報系', '専門学校', '企業', '行政', 'その他']
-const CONTACT_STATUSES = ['未連絡', '連絡中', '送付済', '回答済']
 
 const inputStyle = {
   width: '100%', fontSize: 13, fontFamily: 'inherit', color: T.ink,
@@ -158,53 +154,17 @@ export default function StakeholderForm() {
               </div>
             </div>
 
-            <div>
+            <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>住所</label>
               <input type="text" style={inputStyle} value={form.address}
                 onChange={e => handleChange('address', e.target.value)} />
-            </div>
-          </div>
-
-          {/* 連絡状況・次アクション */}
-          <div style={sectionStyle}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 16, paddingBottom: 10, borderBottom: `1px solid ${T.borderSoft}` }}>連絡状況・次アクション</h2>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>連絡状況</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {CONTACT_STATUSES.map(s => (
-                  <button key={s} type="button"
-                    onClick={() => handleChange('contact_status', s)}
-                    style={{
-                      padding: '6px 14px', fontSize: 12, borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-                      background: form.contact_status === s ? T.teal : T.surfaceAlt,
-                      color: form.contact_status === s ? '#fff' : T.inkSoft,
-                      border: `1px solid ${form.contact_status === s ? T.teal : T.border}`,
-                    }}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>次アクション</label>
-              <input type="text" style={inputStyle} value={form.next_action}
-                onChange={e => handleChange('next_action', e.target.value)}
-                placeholder="例: 案内メールの返信を確認する" />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>次アクション期限</label>
-              <input type="date" style={{ ...inputStyle, width: 180 }} value={form.next_action_date}
-                onChange={e => handleChange('next_action_date', e.target.value)} />
             </div>
 
             <div>
               <label style={labelStyle}>メモ</label>
               <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.memo}
                 onChange={e => handleChange('memo', e.target.value)}
-                placeholder="連絡履歴・備考など" />
+                placeholder="備考・連絡履歴など" />
             </div>
           </div>
 
