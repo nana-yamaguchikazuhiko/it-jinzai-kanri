@@ -208,7 +208,6 @@ export default function StakeholderList() {
             <input
               type="text" placeholder="新しいグループ名..."
               value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddGroup()}
               style={{ ...inputStyle, width: 190, padding: '5px 10px', fontSize: 12 }}
             />
             <button
