@@ -139,25 +139,31 @@ export default function EventList() {
   const [searchText,     setSearchText    ] = useState('')
   const [view,           setView          ] = useState('table')
 
-  // 自動ステータス計算
+  // 親イベントID集合（子を持つイベント）
+  const parentIds = useMemo(() =>
+    new Set(events.filter(e => e.parent_id).map(e => e.parent_id)),
+  [events])
+
+  // 自動ステータス計算（小イベント・単体イベントのみ）
   const eventsWithStatus = useMemo(() => {
     const todayStr = today
     const in3Days  = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().split('T')[0] })()
     return events.map(ev => {
-      if (ev.status === '完了') return ev
-      const evTasks      = tasks.filter(t => t.event_id === ev.id)
-      const overdueTasks = evTasks.filter(t => t.status !== '完了' && t.due_date && t.due_date < todayStr)
-      const soonTasks    = evTasks.filter(t => t.status !== '完了' && t.due_date && t.due_date >= todayStr && t.due_date <= in3Days)
-      const completedRatio = evTasks.length > 0 ? evTasks.filter(t => t.status === '完了').length / evTasks.length : 0
-      const isDistant  = ev.event_date && ev.event_date > (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0] })()
-      let autoStatus = ev.status || '計画中'
-      if (overdueTasks.length > 0)   autoStatus = '要対応'
-      else if (soonTasks.length > 0) autoStatus = '注意'
-      else if (completedRatio >= 0.75) autoStatus = '順調'
-      else if (isDistant && evTasks.every(t => t.status === '未着手')) autoStatus = '計画中'
+      if (parentIds.has(ev.id)) return ev  // 親イベントはステータス計算しない
+      const evTasks = tasks.filter(t => t.event_id === ev.id)
+      let autoStatus
+      if (evTasks.length > 0 && evTasks.every(t => t.status === '完了')) {
+        autoStatus = '完了'
+      } else if (evTasks.some(t => t.status !== '完了' && t.due_date && t.due_date < todayStr)) {
+        autoStatus = '要対応'
+      } else if (evTasks.some(t => t.status === '未着手' && t.due_date && t.due_date >= todayStr && t.due_date <= in3Days)) {
+        autoStatus = '注意'
+      } else {
+        autoStatus = '順調'
+      }
       return { ...ev, status: autoStatus }
     })
-  }, [events, tasks, today])
+  }, [events, tasks, today, parentIds])
 
   const childMap = useMemo(() => {
     const map = {}
@@ -410,7 +416,7 @@ function CompactTableView({ filtered, tasks, childMap, calcProgress, navigate })
                       </div>
                     ) : <span style={{ fontSize: 11, color: T.faint }}>—</span>}
                   </td>
-                  <td style={TD}><Badge tone={eventStatusTone(ev.status)} dot>{ev.status || '—'}</Badge></td>
+                  <td style={TD}>{!isParentEv && <Badge tone={eventStatusTone(ev.status)} dot>{ev.status || '—'}</Badge>}</td>
                   <td style={TD}>
                     <button style={{ width: 26, height: 26, borderRadius: 3, border: 'none', background: 'transparent', color: T.muted, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                       onClick={e => { e.stopPropagation(); navigate(`/events/${ev.id}`) }}>
@@ -418,7 +424,9 @@ function CompactTableView({ filtered, tasks, childMap, calcProgress, navigate })
                     </button>
                   </td>
                 </tr>
-                {isParentEv && children.map((child, j) => (
+                {isParentEv && children.map((child, j) => {
+                  const childProgress = calcProgress(child)
+                  return (
                   <tr key={`${ev.id}-${child.id}`}
                     style={{ background: T.surfaceAlt, borderTop: `1px solid ${T.borderSoft}`, cursor: 'pointer' }}
                     onClick={() => navigate(`/events/${child.id}`)}>
@@ -430,13 +438,24 @@ function CompactTableView({ filtered, tasks, childMap, calcProgress, navigate })
                       </div>
                     </td>
                     <td style={{ ...TD, padding: '8px 16px', fontSize: 11, color: T.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{formatDate(child.event_date)}</td>
-                    <td colSpan={2} style={{ ...TD, padding: '8px 16px' }}></td>
+                    <td style={{ ...TD, padding: '8px 16px' }}></td>
+                    <td style={{ ...TD, padding: '8px 16px' }}>
+                      {childProgress != null ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, height: 5, background: T.borderSoft, borderRadius: 99, overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.max(childProgress, 2)}%`, height: '100%', background: catDef?.color || T.teal, borderRadius: 99 }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: T.ink, fontVariantNumeric: 'tabular-nums', minWidth: 28, textAlign: 'right' }}>{childProgress}%</span>
+                        </div>
+                      ) : <span style={{ fontSize: 11, color: T.faint }}>—</span>}
+                    </td>
                     <td style={{ ...TD, padding: '8px 16px' }}>
                       <Badge tone={eventStatusTone(child.status)} dot size="xs">{child.status || '—'}</Badge>
                     </td>
                     <td style={{ ...TD, padding: '8px 16px' }}></td>
                   </tr>
-                ))}
+                  )
+                })}
               </>
             )
           })}
@@ -488,7 +507,7 @@ function KanbanView({ filtered, tasks, childMap, calcProgress, navigate }) {
                     style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 3, padding: '10px 12px', borderLeft: `3px solid ${cat?.color || T.border}`, cursor: 'pointer' }}
                     onClick={() => navigate(`/events/${ev.id}`)}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Badge tone={eventStatusTone(ev.status)} dot size="xs">{ev.status || '—'}</Badge>
+                      {!isParentEv && <Badge tone={eventStatusTone(ev.status)} dot size="xs">{ev.status || '—'}</Badge>}
                       {isParentEv && (
                         <span style={{ fontSize: 9, color: cat?.color, fontWeight: 700, background: cat?.bg, padding: '1px 5px', borderRadius: 2 }}>
                           親 · {children.length}
@@ -586,7 +605,7 @@ function TimelineHubView({ filtered, tasks, childMap, calcProgress, navigate }) 
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.name}</div>
                 <div style={{ fontSize: 10, color: T.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{path || '—'}</div>
                 <div style={{ marginTop: 5, display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <Badge tone={eventStatusTone(ev.status)} dot size="xs">{ev.status || '—'}</Badge>
+                  {!isParentEv && <Badge tone={eventStatusTone(ev.status)} dot size="xs">{ev.status || '—'}</Badge>}
                   {isParentEv && <span style={{ fontSize: 10, color: catDef?.color, fontWeight: 700 }}>親 · {children.length}件</span>}
                 </div>
               </div>

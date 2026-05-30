@@ -32,13 +32,13 @@ export default function GoalManagement() {
 
   const actuals = useMemo(() => {
     const map = {}
-    const completedEvents = events.filter(e => e.status === '完了')
-    completedEvents.forEach(ev => {
+    events.forEach(ev => {
       const res = results.find(r => r.event_id === ev.id)
+      if (!res || (!res.student_actual && !res.company_actual)) return
       if (!map[ev.small_cat]) map[ev.small_cat] = { hold_count: 0, student: 0, company: 0 }
       map[ev.small_cat].hold_count += 1
-      map[ev.small_cat].student   += Number(res?.student_actual || 0)
-      map[ev.small_cat].company   += Number(res?.company_actual || 0)
+      map[ev.small_cat].student   += Number(res.student_actual || 0)
+      map[ev.small_cat].company   += Number(res.company_actual || 0)
     })
     return map
   }, [events, results])

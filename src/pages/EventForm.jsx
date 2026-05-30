@@ -379,17 +379,6 @@ export default function EventForm() {
                   placeholder="https://..." />
               </div>
             </div>
-            {isEdit && !isParentEvent && (
-              <div>
-                <label className="form-label">ステータス</label>
-                <select className="form-select w-40" value={form.status}
-                  onChange={e => handleChange('status', e.target.value)}>
-                  {['計画中', '順調', '注意', '要対応', '完了'].map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
         </section>
 
