@@ -670,19 +670,39 @@ function TimelineHubView({ filtered, tasks, childMap, calcProgress, navigate }) 
 
               {/* 子イベントピン */}
               {isParentEv && children.map((child, j) => {
-                const idx = monthIdx(child.event_date)
-                if (idx == null) {
+                const top = 8 + j * 24
+
+                // 通年
+                if (!child.event_date || child.event_date === '通年') {
                   return (
-                    <div key={child.id} style={{ position: 'absolute', left: 8, right: 8, top: 8 + j * 24, height: 18, background: catDef?.bg || T.surfaceAlt, border: `1px dashed ${(catDef?.color || T.border)}60`, borderRadius: 3, display: 'flex', alignItems: 'center', paddingLeft: 8, cursor: 'pointer' }}
+                    <div key={child.id} style={{ position: 'absolute', left: 8, right: 8, top, height: 18, background: catDef?.bg || T.surfaceAlt, border: `1px dashed ${(catDef?.color || T.border)}60`, borderRadius: 3, display: 'flex', alignItems: 'center', paddingLeft: 8, cursor: 'pointer' }}
                       onClick={() => navigate(`/events/${child.id}`)}>
                       <span style={{ fontSize: 9.5, color: catDef?.color || T.muted, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>通年: {child.name}</span>
                     </div>
                   )
                 }
+
+                // 開始日〜終了日（期間バー）
+                if (child.event_start_date) {
+                  const startPct = timelinePos(child.event_start_date)
+                  const endPct   = timelinePos(child.event_date)
+                  if (startPct != null && endPct != null) {
+                    return (
+                      <div key={child.id} style={{ position: 'absolute', left: `${startPct}%`, width: `${Math.max(endPct - startPct, 1)}%`, top, height: 18, background: catDef?.bg || T.surfaceAlt, border: `1px solid ${(catDef?.color || T.border)}60`, borderRadius: 3, display: 'flex', alignItems: 'center', paddingLeft: 6, overflow: 'hidden', cursor: 'pointer' }}
+                        onClick={() => navigate(`/events/${child.id}`)}>
+                        <span style={{ fontSize: 9.5, color: catDef?.color || T.muted, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {child.name} <span style={{ fontWeight: 500 }}>{shortEventDate(child)}</span>
+                        </span>
+                      </div>
+                    )
+                  }
+                }
+
+                // 単日ドット
                 const pct  = timelinePos(child.event_date)
                 const left = `calc(${pct}% - 5px)`
                 return (
-                  <div key={child.id} style={{ position: 'absolute', left, top: 8 + j * 24, display: 'flex', alignItems: 'center', gap: 5, height: 18, cursor: 'pointer' }}
+                  <div key={child.id} style={{ position: 'absolute', left, top, display: 'flex', alignItems: 'center', gap: 5, height: 18, cursor: 'pointer' }}
                     onClick={() => navigate(`/events/${child.id}`)}>
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: catDef?.color || T.muted, border: '2px solid #fff', boxShadow: `0 0 0 1px ${catDef?.color || T.muted}40`, flexShrink: 0 }} />
                     <span style={{ fontSize: 10, color: T.ink, fontWeight: 600, whiteSpace: 'nowrap', background: T.surface, padding: '1px 6px', borderRadius: 2, border: `1px solid ${T.border}`, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>
