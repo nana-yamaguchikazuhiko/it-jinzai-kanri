@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS events (
   big_cat            TEXT,
   mid_cat            TEXT,
   small_cat          TEXT,
+  event_start_date   TEXT,
   event_date         TEXT,
   venue              TEXT,
   student_goal       TEXT,

@@ -525,7 +525,12 @@ export default function EventDetail() {
             {event.name}
           </h1>
           <div style={{ display: 'flex', gap: 24, alignItems: 'center', fontSize: 13, color: T.inkSoft }}>
-            <div><span style={{ color: T.muted, marginRight: 6 }}>開催日</span><strong style={{ color: T.ink, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatDate(event.event_date)}</strong></div>
+            <div>
+              <span style={{ color: T.muted, marginRight: 6 }}>開催日</span>
+              <strong style={{ color: T.ink, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                {event.event_start_date ? `${formatDate(event.event_start_date)} 〜 ${formatDate(event.event_date)}` : formatDate(event.event_date)}
+              </strong>
+            </div>
             {event.venue && <div><span style={{ color: T.muted, marginRight: 6 }}>会場</span><strong style={{ color: T.ink, fontWeight: 600 }}>{event.venue}</strong></div>}
             {!isChild && event.student_goal && <div><span style={{ color: T.muted, marginRight: 6 }}>学生目標</span><strong style={{ color: T.ink, fontWeight: 600 }}>{event.student_goal}名</strong></div>}
             {!isChild && event.company_goal && <div><span style={{ color: T.muted, marginRight: 6 }}>企業目標</span><strong style={{ color: T.ink, fontWeight: 600 }}>{event.company_goal}社</strong></div>}
@@ -690,7 +695,7 @@ export default function EventDetail() {
                         <EventStatusBadge status={child.status} />
                       </div>
                       <div style={{ fontSize: 12, color: TEXT_MUTED }}>
-                        開催日: {formatDate(child.event_date)}{child.venue ? ` / ${child.venue}` : ''}
+                        開催日: {child.event_start_date ? `${formatDate(child.event_start_date)} 〜 ${formatDate(child.event_date)}` : formatDate(child.event_date)}{child.venue ? ` / ${child.venue}` : ''}
                       </div>
                       {childTasks.length > 0 && (
                         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>

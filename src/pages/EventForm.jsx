@@ -14,6 +14,7 @@ const EMPTY_EVENT = {
   big_cat: '',
   mid_cat: '',
   small_cat: '',
+  event_start_date: '',
   event_date: '',
   venue: '',
   student_goal: '',
@@ -168,7 +169,7 @@ export default function EventForm() {
     e.preventDefault()
     const catOk = form.small_cat && (STANDALONE_SMALL_CATS.includes(form.small_cat) || (form.big_cat && form.mid_cat))
     if (!form.name || !catOk || !form.event_date) {
-      setError('必須項目（イベント名・分類・開催日）を入力してください')
+      setError('必須項目（イベント名・分類・終了日）を入力してください')
       return
     }
     setSaving(true)
@@ -186,6 +187,7 @@ export default function EventForm() {
           big_cat: form.big_cat,
           mid_cat: form.mid_cat,
           small_cat: form.small_cat,
+          event_start_date: form.event_start_date,
           event_date: form.event_date,
           venue: form.venue,
           student_goal: form.student_goal,
@@ -200,7 +202,8 @@ export default function EventForm() {
       } else {
         await appendRow('events', {
           id: eventId, name: form.name, big_cat: form.big_cat, mid_cat: form.mid_cat,
-          small_cat: form.small_cat, event_date: form.event_date, venue: form.venue,
+          small_cat: form.small_cat, event_start_date: form.event_start_date,
+          event_date: form.event_date, venue: form.venue,
           student_goal: form.student_goal, company_goal: form.company_goal,
           status: form.status || '計画中', student_form_url: form.student_form_url,
           company_form_url: form.company_form_url, portal_company_url: form.portal_company_url,
@@ -311,21 +314,33 @@ export default function EventForm() {
               </p>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="form-label">開催日 <span className="text-red-500">*</span></label>
+                <label className="form-label">開始日</label>
+                {form.event_date === '通年' ? (
+                  <div className="form-input" style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>通年</div>
+                ) : (
+                  <input type="date" className="form-input" value={form.event_start_date}
+                    onChange={e => handleChange('event_start_date', e.target.value)} />
+                )}
+              </div>
+              <div>
+                <label className="form-label">終了日（開催日）<span className="text-red-500">*</span></label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {form.event_date !== '通年' && (
+                  {form.event_date !== '通年' ? (
                     <input type="date" className="form-input" value={form.event_date}
                       onChange={e => handleChange('event_date', e.target.value)} />
-                  )}
-                  {form.event_date === '通年' && (
+                  ) : (
                     <div className="form-input" style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>通年</div>
                   )}
                   <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', cursor: 'pointer' }}>
                     <input type="checkbox"
                       checked={form.event_date === '通年'}
-                      onChange={e => handleChange('event_date', e.target.checked ? '通年' : '')} />
+                      onChange={e => setForm(prev => ({
+                        ...prev,
+                        event_date: e.target.checked ? '通年' : '',
+                        event_start_date: e.target.checked ? '' : prev.event_start_date,
+                      }))} />
                     通年
                   </label>
                 </div>

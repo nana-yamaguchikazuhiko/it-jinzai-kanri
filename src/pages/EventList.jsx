@@ -24,6 +24,20 @@ function shortDate(dateStr) {
   return `${m[2]}/${m[3]}`
 }
 
+function formatEventDate(ev) {
+  if (!ev.event_date) return '—'
+  if (ev.event_date === '通年') return '通年'
+  if (ev.event_start_date) return `${formatDate(ev.event_start_date)} 〜 ${formatDate(ev.event_date)}`
+  return formatDate(ev.event_date)
+}
+
+function shortEventDate(ev) {
+  if (!ev.event_date) return '—'
+  if (ev.event_date === '通年') return '通年'
+  if (ev.event_start_date) return `${shortDate(ev.event_start_date)}〜${shortDate(ev.event_date)}`
+  return shortDate(ev.event_date)
+}
+
 // 月インデックス(4月=0 〜 3月=11)
 function monthIdx(dateStr) {
   const m = dateStr?.match(/(\d{4})[\/\-](\d{2})[\/\-](\d{2})/)
@@ -316,7 +330,7 @@ function CardView({ filtered, tasks, childMap, today, navigate, calcProgress }) 
               <h4 style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 6, lineHeight: 1.4 }}>{ev.name}</h4>
               <p style={{ fontSize: 11, color: T.muted, lineHeight: 1.5, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{path || '—'}</p>
               <div style={{ display: 'flex', gap: 12, fontSize: 11, color: T.inkSoft }}>
-                <span><span style={{ color: T.muted }}>開催:</span> {formatDate(ev.event_date)}</span>
+                <span><span style={{ color: T.muted }}>開催:</span> {formatEventDate(ev)}</span>
                 {ev.venue && <span><span style={{ color: T.muted }}>会場:</span> {ev.venue}</span>}
               </div>
               {progress !== null && (
@@ -341,7 +355,7 @@ function CardView({ filtered, tasks, childMap, today, navigate, calcProgress }) 
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 4px', gap: 8, borderBottom: ci < children.length - 1 ? `1px solid ${T.borderSoft}` : 'none' }}
                       onClick={e => { e.stopPropagation(); navigate(`/events/${child.id}`) }}>
                       <span style={{ fontSize: 11, color: T.inkSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>↳ {child.name}</span>
-                      <span style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{formatDate(child.event_date)}</span>
+                      <span style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{shortEventDate(child)}</span>
                       <Badge tone={mini.tone} size="xs">{mini.label}</Badge>
                     </div>
                   )
@@ -404,7 +418,7 @@ function CompactTableView({ filtered, tasks, childMap, calcProgress, navigate })
                       </div>
                     </div>
                   </td>
-                  <td style={{ ...TD, fontSize: 12, color: T.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{formatDate(ev.event_date)}</td>
+                  <td style={{ ...TD, fontSize: 12, color: T.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{formatEventDate(ev)}</td>
                   <td style={{ ...TD, fontSize: 12, color: T.inkSoft }}>{ev.venue || <span style={{ color: T.faint }}>—</span>}</td>
                   <td style={TD}>
                     {progress != null ? (
@@ -437,7 +451,7 @@ function CompactTableView({ filtered, tasks, childMap, calcProgress, navigate })
                         <span style={{ fontSize: 12, color: T.ink, fontWeight: 500 }}>{child.name}</span>
                       </div>
                     </td>
-                    <td style={{ ...TD, padding: '8px 16px', fontSize: 11, color: T.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{formatDate(child.event_date)}</td>
+                    <td style={{ ...TD, padding: '8px 16px', fontSize: 11, color: T.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{shortEventDate(child)}</td>
                     <td style={{ ...TD, padding: '8px 16px' }}></td>
                     <td style={{ ...TD, padding: '8px 16px' }}>
                       {childProgress != null ? (
@@ -519,7 +533,7 @@ function KanbanView({ filtered, tasks, childMap, calcProgress, navigate }) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, color: T.inkSoft, gap: 8 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                         <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        {formatDate(ev.event_date)}
+                        {formatEventDate(ev)}
                       </span>
                       {progress != null && <span style={{ fontWeight: 700, color: T.ink, fontVariantNumeric: 'tabular-nums' }}>{progress}%</span>}
                     </div>
@@ -535,7 +549,7 @@ function KanbanView({ filtered, tasks, childMap, calcProgress, navigate }) {
                             onClick={e => { e.stopPropagation(); navigate(`/events/${child.id}`) }}>
                             <span style={{ color: cat?.color, fontWeight: 700 }}>└</span>
                             <span style={{ color: T.inkSoft, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{child.name}</span>
-                            <span style={{ color: T.muted, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{shortDate(child.event_date)}</span>
+                            <span style={{ color: T.muted, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{shortEventDate(child)}</span>
                           </div>
                         ))}
                       </div>
@@ -647,7 +661,7 @@ function TimelineHubView({ filtered, tasks, childMap, calcProgress, navigate }) 
                     onClick={() => navigate(`/events/${child.id}`)}>
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: catDef?.color || T.muted, border: '2px solid #fff', boxShadow: `0 0 0 1px ${catDef?.color || T.muted}40`, flexShrink: 0 }} />
                     <span style={{ fontSize: 10, color: T.ink, fontWeight: 600, whiteSpace: 'nowrap', background: T.surface, padding: '1px 6px', borderRadius: 2, border: `1px solid ${T.border}`, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {child.name} <span style={{ color: T.muted, fontWeight: 500, marginLeft: 3 }}>{shortDate(child.event_date)}</span>
+                      {child.name} <span style={{ color: T.muted, fontWeight: 500, marginLeft: 3 }}>{shortEventDate(child)}</span>
                     </span>
                   </div>
                 )
