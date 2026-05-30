@@ -643,6 +643,31 @@ function TimelineHubView({ filtered, tasks, childMap, calcProgress, navigate }) 
                 </div>
               )}
 
+              {/* 期間バー（開始日〜終了日、非親） */}
+              {ev.event_start_date && ev.event_date !== '通年' && !isParentEv && (() => {
+                const startPct = timelinePos(ev.event_start_date)
+                const endPct   = timelinePos(ev.event_date)
+                if (startPct == null || endPct == null) return null
+                return (
+                  <div style={{
+                    position: 'absolute',
+                    left: `${startPct}%`,
+                    width: `${Math.max(endPct - startPct, 1)}%`,
+                    top: '50%', transform: 'translateY(-50%)',
+                    height: 22,
+                    background: catDef?.bg || T.surfaceAlt,
+                    border: `1px solid ${(catDef?.color || T.border)}60`,
+                    borderRadius: 3,
+                    display: 'flex', alignItems: 'center', paddingLeft: 6,
+                    overflow: 'hidden',
+                  }}>
+                    <span style={{ fontSize: 10, color: catDef?.color || T.muted, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {shortDate(ev.event_start_date)}〜{shortDate(ev.event_date)}
+                    </span>
+                  </div>
+                )
+              })()}
+
               {/* 子イベントピン */}
               {isParentEv && children.map((child, j) => {
                 const idx = monthIdx(child.event_date)
