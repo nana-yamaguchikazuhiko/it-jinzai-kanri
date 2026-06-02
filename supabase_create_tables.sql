@@ -191,3 +191,11 @@ CREATE TABLE IF NOT EXISTS form_sync (
   school_name  TEXT,
   company_name TEXT
 );
+
+CREATE TABLE IF NOT EXISTS content_templates (
+  id            TEXT PRIMARY KEY,
+  small_cat     TEXT,
+  template_type TEXT,
+  content       TEXT,
+  updated_at    TEXT
+);

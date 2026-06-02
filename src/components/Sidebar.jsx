@@ -12,7 +12,8 @@ const NAV_ITEMS = [
   { path: '/goals',        label: '目標・実績管理',          icon: Icon.target    },
   { path: '/mails',        label: '問い合わせ管理',          icon: Icon.mail,     suffix: '実装中' },
   { path: '/templates',    label: 'タスクテンプレート',      icon: Icon.template  },
-  { path: '/snippets',     label: 'スニペット',              icon: Icon.code      },
+  { path: '/snippets',          label: 'スニペット',              icon: Icon.code      },
+  { path: '/content-templates', label: 'コンテンツテンプレート',  icon: Icon.note      },
 ]
 
 export default function Sidebar() {

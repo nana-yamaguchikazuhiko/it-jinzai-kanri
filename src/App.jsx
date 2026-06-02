@@ -14,6 +14,7 @@ import MailList from './pages/MailList'
 import SnippetList from './pages/SnippetList'
 import BudgetManagement from './pages/BudgetManagement'
 import FieldNote from './pages/FieldNote'
+import ContentTemplates from './pages/ContentTemplates'
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="snippets" element={<SnippetList />} />
           <Route path="budget" element={<BudgetManagement />} />
           <Route path="fieldnotes" element={<FieldNote />} />
+          <Route path="content-templates" element={<ContentTemplates />} />
         </Route>
       </Routes>
     </BrowserRouter>

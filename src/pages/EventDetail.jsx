@@ -91,6 +91,8 @@ export default function EventDetail() {
   const { rows: eventDocs, reload: reloadDocs } = useSheets('event_documents')
   const { rows: eventBudgets, reload: reloadBudgets } = useSheets('event_budgets')
   const { rows: shGroups, reload: reloadGroups } = useSheets('sh_groups')
+  const { rows: contentTemplates } = useSheets('content_templates')
+  const { rows: groupMembers } = useSheets('sh_group_members')
 
   const [activeTab, setActiveTab] = useState('tasks')
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -122,6 +124,14 @@ export default function EventDetail() {
 
   // メールポップアップ
   const [contactPopup, setContactPopup] = useState(null) // null | { contactIds: string }
+
+  // コンテンツ生成
+  const [genType,          setGenType         ] = useState('company_site')
+  const [genDeadline,      setGenDeadline      ] = useState('')
+  const [genGroupIds,      setGenGroupIds      ] = useState([])
+  const [genExtraCompanies,setGenExtraCompanies] = useState('')
+  const [genOutput,        setGenOutput        ] = useState('')
+  const [genCopied,        setGenCopied        ] = useState(false)
 
   const event = events.find(e => e.id === id)
   const childEvents = events.filter(e => e.parent_id === id)
@@ -644,6 +654,7 @@ export default function EventDetail() {
               { key: 'budget',       label: '収支' },
               { key: 'docs',         label: 'ドキュメント' },
               { key: 'report',       label: '分析・レポート' },
+              { key: 'content',      label: 'コンテンツ生成' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                 style={{
@@ -1043,6 +1054,189 @@ export default function EventDetail() {
               reloadFormSync={reloadFormSync}
             />
           )}
+
+          {/* ── コンテンツ生成タブ ────────────────── */}
+          {activeTab === 'content' && (() => {
+            const GEN_TYPES = [
+              { key: 'company_site', label: '企業向けサイト',   format: 'html' },
+              { key: 'student_site', label: '学生向けサイト',   format: 'html' },
+              { key: 'news',         label: '新着情報',         format: 'html' },
+              { key: 'mailing',      label: 'メーリングリスト', format: 'text' },
+              { key: 'line',         label: 'LINE案内文',       format: 'text' },
+            ]
+            const isHtml = ['company_site', 'student_site', 'news'].includes(genType)
+            const currentTmpl = contentTemplates.find(t => t.small_cat === event?.small_cat && t.template_type === genType)
+
+            function fmtD(d) {
+              if (!d || d === '通年') return d || ''
+              const dt = new Date(d)
+              return `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`
+            }
+
+            const handleGenerate = () => {
+              if (!currentTmpl?.content) {
+                alert(`「${event?.small_cat}」のテンプレートが未登録です。\nコンテンツテンプレートページで登録してください。`)
+                return
+              }
+              const dateRange = event.event_start_date && event.event_date !== '通年'
+                ? `${fmtD(event.event_start_date)} 〜 ${fmtD(event.event_date)}`
+                : fmtD(event.event_date)
+              const companies = []
+              genGroupIds.forEach(gid => {
+                groupMembers
+                  .filter(m => m.group_id === gid)
+                  .forEach(m => {
+                    const sh = stakeholders.find(s => s.id === m.stakeholder_id)
+                    if (sh?.name && !companies.includes(sh.name)) companies.push(sh.name)
+                  })
+              })
+              genExtraCompanies.split('\n').map(s => s.trim()).filter(Boolean).forEach(c => {
+                if (!companies.includes(c)) companies.push(c)
+              })
+              const companyStr = isHtml
+                ? (companies.length > 0 ? `<ul>\n${companies.map(c => `  <li>${c}</li>`).join('\n')}\n</ul>` : '')
+                : companies.map(c => `・${c}`).join('\n')
+              const evYear  = event.event_date && event.event_date !== '通年' ? new Date(event.event_date).getFullYear()     : ''
+              const evMonth = event.event_date && event.event_date !== '通年' ? new Date(event.event_date).getMonth() + 1 : ''
+              const output = currentTmpl.content
+                .replace(/\{\{event_name\}\}/g,         event.name || '')
+                .replace(/\{\{event_date_range\}\}/g,   dateRange)
+                .replace(/\{\{event_date\}\}/g,         fmtD(event.event_date))
+                .replace(/\{\{event_start_date\}\}/g,   event.event_start_date ? fmtD(event.event_start_date) : '')
+                .replace(/\{\{venue\}\}/g,              event.venue || '')
+                .replace(/\{\{company_list\}\}/g,       companyStr)
+                .replace(/\{\{student_goal\}\}/g,       event.student_goal || '')
+                .replace(/\{\{company_goal\}\}/g,       event.company_goal || '')
+                .replace(/\{\{portal_student_url\}\}/g, event.portal_student_url || '')
+                .replace(/\{\{portal_company_url\}\}/g, event.portal_company_url || '')
+                .replace(/\{\{year\}\}/g,               String(evYear))
+                .replace(/\{\{month\}\}/g,              String(evMonth))
+                .replace(/\{\{deadline\}\}/g,           genDeadline || '')
+              setGenOutput(output)
+              setGenCopied(false)
+            }
+
+            const toggleGroup = gid => setGenGroupIds(prev =>
+              prev.includes(gid) ? prev.filter(id => id !== gid) : [...prev, gid]
+            )
+
+            return (
+              <div style={{ padding: '20px 24px' }}>
+                {/* テンプレート種別 */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '0.06em', marginBottom: 8 }}>出力種別</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {GEN_TYPES.map(t => {
+                      const hasTmpl = contentTemplates.some(ct => ct.small_cat === event?.small_cat && ct.template_type === t.key && ct.content)
+                      return (
+                        <button key={t.key} onClick={() => { setGenType(t.key); setGenOutput(''); setGenCopied(false) }}
+                          style={{
+                            fontSize: 12, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
+                            background: genType === t.key ? PRIMARY : T.surfaceAlt,
+                            color: genType === t.key ? '#fff' : T.inkSoft,
+                            border: `1px solid ${genType === t.key ? PRIMARY : T.border}`,
+                            display: 'flex', alignItems: 'center', gap: 5,
+                          }}>
+                          {t.label}
+                          {hasTmpl
+                            ? <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: genType === t.key ? 'rgba(255,255,255,0.25)' : T.tealBg, color: genType === t.key ? '#fff' : T.teal, fontWeight: 700 }}>✓</span>
+                            : <span style={{ fontSize: 9, color: genType === t.key ? 'rgba(255,255,255,0.6)' : T.faint }}>未登録</span>
+                          }
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {!currentTmpl?.content && (
+                    <p style={{ marginTop: 6, fontSize: 11, color: T.warning }}>
+                      ⚠ 「{event?.small_cat}」のこの種別テンプレートが未登録です。
+                      <a href="/content-templates" style={{ color: T.teal, marginLeft: 4 }}>テンプレートを登録する</a>
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+                  {/* 参加企業グループ選択 */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '0.06em', marginBottom: 8 }}>参加企業・団体グループ</div>
+                    {shGroups.length === 0 ? (
+                      <p style={{ fontSize: 12, color: T.muted }}>グループが未登録です</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {shGroups.map(grp => {
+                          const memberCount = groupMembers.filter(m => m.group_id === grp.id).length
+                          return (
+                            <label key={grp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                              <input type="checkbox"
+                                checked={genGroupIds.includes(grp.id)}
+                                onChange={() => toggleGroup(grp.id)} />
+                              <span style={{ color: T.ink, fontWeight: 500 }}>{grp.name}</span>
+                              <span style={{ fontSize: 11, color: T.muted }}>（{memberCount}社）</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: TEXT_MUTED, marginBottom: 4 }}>追加入力（1行1社）</div>
+                      <textarea
+                        value={genExtraCompanies}
+                        onChange={e => setGenExtraCompanies(e.target.value)}
+                        placeholder="株式会社〇〇&#10;△△株式会社"
+                        rows={4}
+                        style={{ width: '100%', fontSize: 12, fontFamily: 'inherit', border: `1px solid ${T.border}`, borderRadius: 4, padding: '8px 10px', resize: 'vertical', outline: 'none', color: T.ink }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 申込締切日 */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '0.06em', marginBottom: 8 }}>申込締切日 <span style={{ fontWeight: 400, color: T.muted }}>（{{deadline}}に反映）</span></div>
+                    <input type="date"
+                      value={genDeadline}
+                      onChange={e => setGenDeadline(e.target.value)}
+                      style={{ fontSize: 13, padding: '8px 10px', border: `1px solid ${T.border}`, borderRadius: 4, fontFamily: 'inherit', outline: 'none', color: T.ink, width: 180 }}
+                    />
+                  </div>
+                </div>
+
+                {/* 生成ボタン */}
+                <div style={{ marginBottom: 20 }}>
+                  <button onClick={handleGenerate}
+                    style={{ fontSize: 13, padding: '10px 24px', borderRadius: 6, background: PRIMARY, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }}>
+                    ⚡ コンテンツを生成
+                  </button>
+                </div>
+
+                {/* 生成結果 */}
+                {genOutput && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>生成結果</span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {genCopied && <span style={{ fontSize: 12, color: T.success, fontWeight: 600 }}>✓ コピーしました</span>}
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(genOutput); setGenCopied(true); setTimeout(() => setGenCopied(false), 2500) }}
+                          style={{ fontSize: 12, padding: '5px 14px', borderRadius: 5, background: T.teal, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
+                          コピー
+                        </button>
+                      </div>
+                    </div>
+                    <textarea
+                      readOnly
+                      value={genOutput}
+                      rows={16}
+                      style={{
+                        width: '100%', fontSize: 12, lineHeight: 1.7, resize: 'vertical',
+                        fontFamily: isHtml ? '"SFMono-Regular", Consolas, monospace' : 'inherit',
+                        border: `1px solid ${T.border}`, borderRadius: 4, padding: '12px 14px',
+                        background: '#f8fafc', color: T.ink, outline: 'none',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
 
