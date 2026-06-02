@@ -2228,21 +2228,53 @@ function fmtDateJp(d) {
 }
 
 function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeholders }) {
-  const [genType,           setGenType          ] = useState('company_site')
-  const [genDeadline,       setGenDeadline       ] = useState('')
-  const [genGroupIds,       setGenGroupIds       ] = useState([])
-  const [genExtraCompanies, setGenExtraCompanies ] = useState('')
-  const [genOutput,         setGenOutput         ] = useState('')
-  const [genCopied,         setGenCopied         ] = useState(false)
+  const [genType,              setGenType             ] = useState('company_site')
+  const [genDeadline,          setGenDeadline          ] = useState('')
+  const [genGroupIds,          setGenGroupIds          ] = useState([])
+  const [genExtraCompanies,    setGenExtraCompanies    ] = useState('')
+  const [genOutput,            setGenOutput            ] = useState('')
+  const [genCopied,            setGenCopied            ] = useState(false)
+  // スプレッドシート連携
+  const [sheetUrl,             setSheetUrl             ] = useState('')
+  const [sheetCompanies,       setSheetCompanies       ] = useState([])
+  const [selectedSheetNames,   setSelectedSheetNames   ] = useState([])
+  const [loadingSheet,         setLoadingSheet         ] = useState(false)
+  const [sheetError,           setSheetError           ] = useState('')
+  const [sheetLoaded,          setSheetLoaded          ] = useState(false)
 
   if (!event) return null
 
   const isHtml      = ['company_site', 'student_site', 'news'].includes(genType)
   const currentTmpl = contentTemplates.find(t => t.small_cat === event.small_cat && t.template_type === genType)
+  const useSheet    = isHtml // HTML系テンプレートでスプレッドシート連携を表示
 
   const toggleGroup = gid => setGenGroupIds(prev =>
     prev.includes(gid) ? prev.filter(id => id !== gid) : [...prev, gid]
   )
+  const toggleSheetCompany = name => setSelectedSheetNames(prev =>
+    prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+  )
+
+  const handleLoadSheet = async () => {
+    if (!sheetUrl.trim()) return
+    setLoadingSheet(true)
+    setSheetError('')
+    setSheetCompanies([])
+    setSelectedSheetNames([])
+    setSheetLoaded(false)
+    try {
+      const res = await fetch('/.netlify/functions/read-company-sheet?spreadsheet_url=' + encodeURIComponent(sheetUrl.trim()))
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '読み込み失敗')
+      setSheetCompanies(data.companies || [])
+      setSelectedSheetNames((data.companies || []).map(c => c.name))
+      setSheetLoaded(true)
+    } catch (e) {
+      setSheetError(e.message)
+    } finally {
+      setLoadingSheet(false)
+    }
+  }
 
   const handleGenerate = () => {
     if (!currentTmpl?.content) {
@@ -2252,43 +2284,86 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
     const dateRange = event.event_start_date && event.event_date !== '通年'
       ? fmtDateJp(event.event_start_date) + ' 〜 ' + fmtDateJp(event.event_date)
       : fmtDateJp(event.event_date)
-    const companies = []
-    genGroupIds.forEach(gid => {
-      groupMembers.filter(m => m.group_id === gid).forEach(m => {
-        const sh = stakeholders.find(s => s.id === m.stakeholder_id)
-        if (sh?.name && !companies.includes(sh.name)) companies.push(sh.name)
+
+    // {{company_list}} 用の名前リスト
+    const selectedSheet = sheetCompanies.filter(c => selectedSheetNames.includes(c.name))
+    let companyNames = selectedSheet.map(c => c.name)
+    // スプレッドシート未使用時はグループ + 手動入力
+    if (companyNames.length === 0) {
+      genGroupIds.forEach(gid => {
+        groupMembers.filter(m => m.group_id === gid).forEach(m => {
+          const sh = stakeholders.find(s => s.id === m.stakeholder_id)
+          if (sh?.name && !companyNames.includes(sh.name)) companyNames.push(sh.name)
+        })
       })
-    })
-    genExtraCompanies.split('\n').map(s => s.trim()).filter(Boolean).forEach(c => {
-      if (!companies.includes(c)) companies.push(c)
-    })
+      genExtraCompanies.split('\n').map(s => s.trim()).filter(Boolean).forEach(c => {
+        if (!companyNames.includes(c)) companyNames.push(c)
+      })
+    }
     const companyStr = isHtml
-      ? (companies.length > 0 ? '<ul>\n' + companies.map(c => '  <li>' + c + '</li>').join('\n') + '\n</ul>' : '')
-      : companies.map(c => '・' + c).join('\n')
+      ? (companyNames.length > 0 ? '<ul>\n' + companyNames.map(c => '  <li>' + c + '</li>').join('\n') + '\n</ul>' : '')
+      : companyNames.map(c => '・' + c).join('\n')
+
+    // {{company_cards_js}} 用のJavaScript配列内容
+    const companyCardsJs = selectedSheet.length > 0
+      ? '\n' + selectedSheet.map(c => [
+          '  {',
+          '    name: ' + JSON.stringify(c.name) + ',',
+          '    website: ' + JSON.stringify(c.website) + ',',
+          '    established: ' + JSON.stringify(c.established) + ',',
+          '    address: ' + JSON.stringify(c.address) + ',',
+          '    location: ' + JSON.stringify(c.location) + ',',
+          '    business: ' + JSON.stringify(c.business) + ',',
+          '    employees: ' + JSON.stringify(c.employees) + ',',
+          '    age: ' + JSON.stringify(c.age) + ',',
+          '    gender: ' + JSON.stringify(c.gender) + ',',
+          '    paidLeave: ' + JSON.stringify(c.paidLeave) + ',',
+          '    overtime: ' + JSON.stringify(c.overtime) + ',',
+          '    holidays: ' + JSON.stringify(c.holidays) + ',',
+          '    remote: ' + JSON.stringify(c.remote) + ',',
+          '  }',
+        ].join('\n')).join(',\n') + '\n'
+      : ''
+
+    // {{company_messages}} 用のHTMLブロック
+    const companyMessages = selectedSheet.length > 0
+      ? '\n' + selectedSheet.filter(c => c.message).map(c =>
+          '  <dt>' + c.name + '</dt>\n  <dd>' + c.message + '</dd>'
+        ).join('\n\n') + '\n'
+      : ''
+
     const evYear  = event.event_date && event.event_date !== '通年' ? new Date(event.event_date).getFullYear() : ''
     const evMonth = event.event_date && event.event_date !== '通年' ? new Date(event.event_date).getMonth() + 1 : ''
+
     const output = currentTmpl.content
-      .replace(/\{\{event_name\}\}/g,         event.name || '')
-      .replace(/\{\{event_date_range\}\}/g,   dateRange)
-      .replace(/\{\{event_date\}\}/g,         fmtDateJp(event.event_date))
-      .replace(/\{\{event_start_date\}\}/g,   event.event_start_date ? fmtDateJp(event.event_start_date) : '')
-      .replace(/\{\{venue\}\}/g,              event.venue || '')
-      .replace(/\{\{company_list\}\}/g,       companyStr)
-      .replace(/\{\{student_goal\}\}/g,       event.student_goal || '')
-      .replace(/\{\{company_goal\}\}/g,       event.company_goal || '')
-      .replace(/\{\{portal_student_url\}\}/g, event.portal_student_url || '')
-      .replace(/\{\{portal_company_url\}\}/g, event.portal_company_url || '')
-      .replace(/\{\{year\}\}/g,               String(evYear))
-      .replace(/\{\{month\}\}/g,              String(evMonth))
-      .replace(/\{\{deadline\}\}/g,           genDeadline || '')
+      .replace(/\{\{event_name\}\}/g,          event.name || '')
+      .replace(/\{\{event_date_range\}\}/g,    dateRange)
+      .replace(/\{\{event_date\}\}/g,          fmtDateJp(event.event_date))
+      .replace(/\{\{event_start_date\}\}/g,    event.event_start_date ? fmtDateJp(event.event_start_date) : '')
+      .replace(/\{\{venue\}\}/g,               event.venue || '')
+      .replace(/\{\{company_list\}\}/g,        companyStr)
+      .replace(/\{\{company_cards_js\}\}/g,    companyCardsJs)
+      .replace(/\{\{company_messages\}\}/g,    companyMessages)
+      .replace(/\{\{student_goal\}\}/g,        event.student_goal || '')
+      .replace(/\{\{company_goal\}\}/g,        event.company_goal || '')
+      .replace(/\{\{portal_student_url\}\}/g,  event.portal_student_url || '')
+      .replace(/\{\{portal_company_url\}\}/g,  event.portal_company_url || '')
+      .replace(/\{\{year\}\}/g,                String(evYear))
+      .replace(/\{\{month\}\}/g,               String(evMonth))
+      .replace(/\{\{deadline\}\}/g,            genDeadline || '')
     setGenOutput(output)
     setGenCopied(false)
   }
 
+  const sectionLabel = { fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: '0.06em', marginBottom: 8 }
+  const card = { background: T.surfaceAlt, borderRadius: 4, border: '1px solid ' + T.border, padding: '14px 16px', marginBottom: 16 }
+
   return (
     <div style={{ padding: '20px 24px' }}>
+
+      {/* 出力種別 */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: '0.06em', marginBottom: 8 }}>出力種別</div>
+        <div style={sectionLabel}>出力種別</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {GEN_TYPES.map(t => {
             const hasTmpl = contentTemplates.some(ct => ct.small_cat === event.small_cat && ct.template_type === t.key && ct.content)
@@ -2320,47 +2395,105 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: '0.06em', marginBottom: 8 }}>参加企業・団体グループ</div>
-          {shGroups.length === 0 ? (
-            <p style={{ fontSize: 12, color: T.muted }}>グループが未登録です</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {shGroups.map(grp => (
-                <label key={grp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-                  <input type="checkbox"
-                    checked={genGroupIds.includes(grp.id)}
-                    onChange={() => toggleGroup(grp.id)} />
-                  <span style={{ color: T.ink, fontWeight: 500 }}>{grp.name}</span>
-                  <span style={{ fontSize: 11, color: T.muted }}>（{groupMembers.filter(m => m.group_id === grp.id).length}社）</span>
-                </label>
-              ))}
+      {/* スプレッドシート連携（HTML系のみ） */}
+      {useSheet && (
+        <div style={card}>
+          <div style={{ ...sectionLabel, marginBottom: 10 }}>
+            企業申込スプレッドシート連携
+            <span style={{ fontWeight: 400, marginLeft: 8, fontSize: 10 }}>
+              {'{{company_cards_js}}'} {'{{company_messages}}'} {'{{company_list}}'} に反映
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+            <input
+              type="text"
+              value={sheetUrl}
+              onChange={e => setSheetUrl(e.target.value)}
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              style={{ flex: 1, fontSize: 12, padding: '7px 10px', border: '1px solid ' + T.border, borderRadius: 4, fontFamily: 'inherit', outline: 'none', color: T.ink }}
+            />
+            <button onClick={handleLoadSheet} disabled={!sheetUrl.trim() || loadingSheet}
+              style={{ fontSize: 12, padding: '7px 16px', borderRadius: 5, background: T.teal, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: (!sheetUrl.trim() || loadingSheet) ? 0.5 : 1 }}>
+              {loadingSheet ? '読み込み中...' : '読み込む'}
+            </button>
+          </div>
+          {sheetError && (
+            <p style={{ fontSize: 11, color: T.danger, marginBottom: 8 }}>⚠ {sheetError}</p>
+          )}
+          {sheetLoaded && sheetCompanies.length === 0 && (
+            <p style={{ fontSize: 12, color: T.muted }}>企業データが見つかりませんでした。スプレッドシートの共有設定を確認してください。</p>
+          )}
+          {sheetCompanies.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>
+                {sheetCompanies.length}社を読み込みました。出力に含める企業を選択してください。
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 240, overflowY: 'auto' }}>
+                {sheetCompanies.map(c => (
+                  <label key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '4px 6px', borderRadius: 3, background: selectedSheetNames.includes(c.name) ? T.tealBg : 'transparent' }}>
+                    <input type="checkbox"
+                      checked={selectedSheetNames.includes(c.name)}
+                      onChange={() => toggleSheetCompany(c.name)} />
+                    <span style={{ fontWeight: 600, color: T.ink }}>{c.name}</span>
+                    {!c.message && <span style={{ fontSize: 10, color: T.warning }}>メッセージなし</span>}
+                    {!c.website && <span style={{ fontSize: 10, color: T.muted }}>URL未入力</span>}
+                  </label>
+                ))}
+              </div>
+              <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
+                <button onClick={() => setSelectedSheetNames(sheetCompanies.map(c => c.name))}
+                  style={{ fontSize: 11, color: T.teal, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>全選択</button>
+                <button onClick={() => setSelectedSheetNames([])}
+                  style={{ fontSize: 11, color: T.muted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>全解除</button>
+              </div>
             </div>
           )}
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.muted, marginBottom: 4 }}>追加入力（1行1社）</div>
-            <textarea
-              value={genExtraCompanies}
-              onChange={e => setGenExtraCompanies(e.target.value)}
-              placeholder={'株式会社〇〇\n△△株式会社'}
-              rows={4}
-              style={{ width: '100%', fontSize: 12, fontFamily: 'inherit', border: '1px solid ' + T.border, borderRadius: 4, padding: '8px 10px', resize: 'vertical', outline: 'none', color: T.ink, boxSizing: 'border-box' }}
-            />
-          </div>
         </div>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: '0.06em', marginBottom: 8 }}>
-            申込締切日 <span style={{ fontWeight: 400 }}>（{'{{deadline}}'}に反映）</span>
-          </div>
-          <input type="date"
-            value={genDeadline}
-            onChange={e => setGenDeadline(e.target.value)}
-            style={{ fontSize: 13, padding: '8px 10px', border: '1px solid ' + T.border, borderRadius: 4, fontFamily: 'inherit', outline: 'none', color: T.ink, width: 180 }}
-          />
-        </div>
-      </div>
+      )}
 
+      {/* 企業リスト（グループ・手動、スプレッドシート未使用時） */}
+      {(!sheetLoaded || selectedSheetNames.length === 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <div style={sectionLabel}>参加企業グループ（{{'{{'}}company_list{'}}'}に反映）</div>
+            {shGroups.length === 0 ? (
+              <p style={{ fontSize: 12, color: T.muted }}>グループが未登録です</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {shGroups.map(grp => (
+                  <label key={grp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
+                    <input type="checkbox" checked={genGroupIds.includes(grp.id)} onChange={() => toggleGroup(grp.id)} />
+                    <span style={{ color: T.ink, fontWeight: 500 }}>{grp.name}</span>
+                    <span style={{ fontSize: 11, color: T.muted }}>（{groupMembers.filter(m => m.group_id === grp.id).length}社）</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: T.muted, marginBottom: 4 }}>追加入力（1行1社）</div>
+              <textarea value={genExtraCompanies} onChange={e => setGenExtraCompanies(e.target.value)}
+                placeholder={'株式会社〇〇\n△△株式会社'} rows={3}
+                style={{ width: '100%', fontSize: 12, fontFamily: 'inherit', border: '1px solid ' + T.border, borderRadius: 4, padding: '7px 10px', resize: 'vertical', outline: 'none', color: T.ink, boxSizing: 'border-box' }} />
+            </div>
+          </div>
+          <div>
+            <div style={sectionLabel}>申込締切日 <span style={{ fontWeight: 400 }}>（{'{{deadline}}'}に反映）</span></div>
+            <input type="date" value={genDeadline} onChange={e => setGenDeadline(e.target.value)}
+              style={{ fontSize: 13, padding: '8px 10px', border: '1px solid ' + T.border, borderRadius: 4, fontFamily: 'inherit', outline: 'none', color: T.ink, width: 180 }} />
+          </div>
+        </div>
+      )}
+
+      {/* スプレッドシート使用時の締切日 */}
+      {sheetLoaded && selectedSheetNames.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={sectionLabel}>申込締切日 <span style={{ fontWeight: 400 }}>（{'{{deadline}}'}に反映）</span></div>
+          <input type="date" value={genDeadline} onChange={e => setGenDeadline(e.target.value)}
+            style={{ fontSize: 13, padding: '8px 10px', border: '1px solid ' + T.border, borderRadius: 4, fontFamily: 'inherit', outline: 'none', color: T.ink, width: 180 }} />
+        </div>
+      )}
+
+      {/* 生成ボタン */}
       <div style={{ marginBottom: 20 }}>
         <button onClick={handleGenerate}
           style={{ fontSize: 13, padding: '10px 24px', borderRadius: 6, background: T.teal, color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }}>
@@ -2368,6 +2501,7 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
         </button>
       </div>
 
+      {/* 生成結果 */}
       {genOutput && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -2381,10 +2515,7 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
               </button>
             </div>
           </div>
-          <textarea
-            readOnly
-            value={genOutput}
-            rows={16}
+          <textarea readOnly value={genOutput} rows={20}
             style={{
               width: '100%', fontSize: 12, lineHeight: 1.7, resize: 'vertical',
               fontFamily: isHtml ? '"SFMono-Regular", Consolas, monospace' : 'inherit',

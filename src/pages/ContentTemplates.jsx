@@ -29,6 +29,8 @@ export const PLACEHOLDERS = [
   { key: '{{year}}',               desc: '年' },
   { key: '{{month}}',              desc: '月' },
   { key: '{{deadline}}',           desc: '申込締切日（生成時に入力）' },
+  { key: '{{company_cards_js}}',   desc: '企業カードJS（スプレッドシートから自動生成）baseCompanies=[...] の中身に置換' },
+  { key: '{{company_messages}}',   desc: '企業メッセージHTML（スプレッドシートから自動生成）<dt>企業名</dt><dd>本文</dd>に置換' },
 ]
 
 const SMALL_CAT_NAMES = ALL_SMALL_CATS.map(s => s.name)
