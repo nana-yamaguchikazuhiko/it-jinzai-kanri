@@ -77,7 +77,7 @@ export const handler = async (event) => {
         return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }
       }
 
-      // 削除
+      // 削除（IDで1件）
       if (action === 'delete') {
         if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'id が必要です' }) }
         const res = await fetch(`${SUPABASE_URL}/rest/v1/${sheet}?id=eq.${encodeURIComponent(id)}`, {
@@ -85,6 +85,20 @@ export const handler = async (event) => {
           headers: { ...supabaseHeaders(), 'Prefer': 'return=minimal' },
         })
         if (!res.ok) throw new Error(`Supabase DELETE 失敗: ${await res.text()}`)
+        return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }
+      }
+
+      // 条件一括削除（deleteByFilter）
+      if (action === 'deleteByFilter') {
+        const filter = body.filter
+        if (!filter || Object.keys(filter).length === 0)
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'filter が必要です' }) }
+        const qs = Object.entries(filter).map(([k, v]) => `${k}=eq.${encodeURIComponent(v)}`).join('&')
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${sheet}?${qs}`, {
+          method: 'DELETE',
+          headers: { ...supabaseHeaders(), 'Prefer': 'return=minimal' },
+        })
+        if (!res.ok) throw new Error(`Supabase DELETE(filter) 失敗: ${await res.text()}`)
         return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }
       }
 
