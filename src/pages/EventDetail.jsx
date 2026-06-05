@@ -2497,7 +2497,7 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
       {(!sheetLoaded || selectedSheetNames.length === 0) && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
-            <div style={sectionLabel}>参加企業グループ（{{'{{'}}company_list{'}}'}に反映）</div>
+            <div style={sectionLabel}>{'参加企業グループ（{{company_list}}に反映）'}</div>
             {shGroups.length === 0 ? (
               <p style={{ fontSize: 12, color: T.muted }}>グループが未登録です</p>
             ) : (
