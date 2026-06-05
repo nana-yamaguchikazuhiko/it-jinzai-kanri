@@ -73,7 +73,7 @@ export default function SnippetList() {
       const now = new Date().toISOString()
       if (editingId) {
         const target = snippets.find(s => s.id === editingId)
-        await updateById('snippets', editingId, { ...target, ...form, updated_at: now })
+        await updateById('snippets', editingId, { ...target, ...form })
       } else {
         await appendRow('snippets', { id: generateId(), title: form.title, description: form.description, category: form.category, code: form.code, created_at: now })
       }
