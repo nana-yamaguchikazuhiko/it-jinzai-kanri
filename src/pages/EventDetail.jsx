@@ -2214,11 +2214,11 @@ function SurveyPieChart({ counts, total }) {
    コンテンツ生成タブ
    ══════════════════════════════════════ */
 const GEN_TYPES = [
-  { key: 'company_site', label: '企業向けサイト',   format: 'html' },
-  { key: 'student_site', label: '学生向けサイト',   format: 'html' },
-  { key: 'news',         label: '新着情報',         format: 'html' },
-  { key: 'mailing',      label: 'メーリングリスト', format: 'text' },
-  { key: 'line',         label: 'LINE案内文',       format: 'text' },
+  { key: 'company_site', label: '企業向けサイト', format: 'html', multi: false },
+  { key: 'student_site', label: '学生向けサイト', format: 'html', multi: false },
+  { key: 'news',         label: '新着情報',       format: 'html', multi: false },
+  { key: 'mail',         label: 'メール',         format: 'text', multi: true  },
+  { key: 'line',         label: 'LINE案内文',     format: 'text', multi: false },
 ]
 
 function fmtDateJp(d) {
@@ -2229,6 +2229,7 @@ function fmtDateJp(d) {
 
 function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeholders }) {
   const [genType,              setGenType             ] = useState('company_site')
+  const [genMailId,            setGenMailId            ] = useState(null) // メール種別選択
   const [genDeadline,          setGenDeadline          ] = useState('')
   const [genGroupIds,          setGenGroupIds          ] = useState([])
   const [genExtraCompanies,    setGenExtraCompanies    ] = useState('')
@@ -2244,8 +2245,16 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
 
   if (!event) return null
 
-  const isHtml      = ['company_site', 'student_site', 'news'].includes(genType)
-  const currentTmpl = contentTemplates.find(t => t.small_cat === event.small_cat && t.template_type === genType)
+  const isHtml       = ['company_site', 'student_site', 'news'].includes(genType)
+  const genTypeDef   = GEN_TYPES.find(t => t.key === genType)
+  const isMultiType  = genTypeDef?.multi === true
+  // メール（multi）の場合は選択中IDのテンプレートを使う。旧キー mailing も検索
+  const mailTemplates = isMultiType
+    ? contentTemplates.filter(t => t.small_cat === event.small_cat && (t.template_type === 'mail' || t.template_type === 'mailing'))
+    : []
+  const currentTmpl = isMultiType
+    ? mailTemplates.find(t => t.id === genMailId)
+    : contentTemplates.find(t => t.small_cat === event.small_cat && t.template_type === genType)
   const useSheet    = isHtml // HTML系テンプレートでスプレッドシート連携を表示
 
   const toggleGroup = gid => setGenGroupIds(prev =>
@@ -2366,11 +2375,14 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
         <div style={sectionLabel}>出力種別</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {GEN_TYPES.map(t => {
-            const hasTmpl = contentTemplates.some(ct => ct.small_cat === event.small_cat && ct.template_type === t.key && ct.content)
-            const active  = genType === t.key
+            const hasTmpl = t.multi
+              ? contentTemplates.some(ct => ct.small_cat === event.small_cat && (ct.template_type === t.key || ct.template_type === 'mailing') && ct.content)
+              : contentTemplates.some(ct => ct.small_cat === event.small_cat && ct.template_type === t.key && ct.content)
+            const mailCount = t.multi ? contentTemplates.filter(ct => ct.small_cat === event.small_cat && (ct.template_type === t.key || ct.template_type === 'mailing')).length : 0
+            const active    = genType === t.key
             return (
               <button key={t.key}
-                onClick={() => { setGenType(t.key); setGenOutput(''); setGenCopied(false) }}
+                onClick={() => { setGenType(t.key); setGenMailId(null); setGenOutput(''); setGenCopied(false) }}
                 style={{
                   fontSize: 12, padding: '6px 14px', borderRadius: 6, cursor: 'pointer',
                   fontWeight: 600, fontFamily: 'inherit',
@@ -2380,17 +2392,47 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}>
                 {t.label}
-                {hasTmpl
+                {t.multi && mailCount > 0 && (
+                  <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: active ? 'rgba(255,255,255,0.25)' : T.tealBg, color: active ? '#fff' : T.teal, fontWeight: 700 }}>{mailCount}</span>
+                )}
+                {!t.multi && (hasTmpl
                   ? <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: active ? 'rgba(255,255,255,0.25)' : T.tealBg, color: active ? '#fff' : T.teal, fontWeight: 700 }}>✓</span>
                   : <span style={{ fontSize: 9, color: active ? 'rgba(255,255,255,0.6)' : T.faint }}>未登録</span>
-                }
+                )}
               </button>
             )
           })}
         </div>
-        {!currentTmpl?.content && (
+
+        {/* メール種別サブ選択 */}
+        {isMultiType && (
+          <div style={{ marginTop: 10, padding: '10px 12px', background: T.surfaceAlt, borderRadius: 4, border: '1px solid ' + T.border, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.muted, marginRight: 4 }}>メール種別：</span>
+            {mailTemplates.length === 0 ? (
+              <span style={{ fontSize: 11, color: T.muted }}>テンプレート未登録。「コンテンツテンプレート」で登録してください。</span>
+            ) : mailTemplates.map(tmpl => (
+              <button key={tmpl.id}
+                onClick={() => { setGenMailId(tmpl.id); setGenOutput(''); setGenCopied(false) }}
+                style={{
+                  fontSize: 11, padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
+                  background: genMailId === tmpl.id ? T.teal : T.surface,
+                  color: genMailId === tmpl.id ? '#fff' : T.inkSoft,
+                  border: '1px solid ' + (genMailId === tmpl.id ? T.teal : T.border),
+                }}>
+                {tmpl.name || '（名称なし）'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {(!isMultiType && !currentTmpl?.content) && (
           <p style={{ marginTop: 6, fontSize: 11, color: T.warning }}>
             ⚠ 「{event.small_cat}」のこの種別テンプレートが未登録です。サイドバーの「コンテンツテンプレート」で登録してください。
+          </p>
+        )}
+        {isMultiType && genMailId && !currentTmpl?.content && (
+          <p style={{ marginTop: 4, fontSize: 11, color: T.warning }}>
+            ⚠ このメール種別のテンプレートが空です。「コンテンツテンプレート」で内容を登録してください。
           </p>
         )}
       </div>

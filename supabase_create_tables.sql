@@ -196,6 +196,7 @@ CREATE TABLE IF NOT EXISTS content_templates (
   id            TEXT PRIMARY KEY,
   small_cat     TEXT,
   template_type TEXT,
+  name          TEXT,
   content       TEXT,
   updated_at    TEXT
 );
