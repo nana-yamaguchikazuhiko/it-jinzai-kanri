@@ -2081,31 +2081,36 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                     )}
                     {chartTypes[q.label] === 'pie' ? (
                       <SurveyPieChart counts={q.counts} total={q.total} />
-                    ) : (() => {
-                      // scale_labels の解析
-                      const scaleCol = surveyColumns.find(c => c.question_label === q.label)
-                      const scaleLabels = {}
-                      if (scaleCol?.scale_labels) {
-                        scaleCol.scale_labels.split(',').forEach(pair => {
-                          const idx = pair.indexOf(':')
-                          if (idx > 0) scaleLabels[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim()
-                        })
-                      }
-                      return q.counts.map(([answer, count]) => {
-                        const pct   = q.total > 0 ? Math.round((count / q.total) * 100) : 0
-                        const lbl   = scaleLabels[answer]
-                        const label = lbl ? `${answer}：${lbl}` : answer
-                        return (
-                          <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 200, fontSize: 12, color: C.secondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>{label}</div>
-                            <div style={{ flex: 1, height: 16, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', maxWidth: 260 }}>
-                              <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: C.primary, borderRadius: 4, transition: 'width 0.4s' }} />
+                    ) : (
+                      <>
+                        {q.counts.map(([answer, count]) => {
+                          const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0
+                          return (
+                            <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ width: 160, fontSize: 12, color: C.secondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{answer}</div>
+                              <div style={{ flex: 1, height: 16, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', maxWidth: 280 }}>
+                                <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: C.primary, borderRadius: 4, transition: 'width 0.4s' }} />
+                              </div>
+                              <div style={{ fontSize: 12, color: C.text, fontWeight: 600, width: 70, flexShrink: 0 }}>{count}件 ({pct}%)</div>
                             </div>
-                            <div style={{ fontSize: 12, color: C.text, fontWeight: 600, width: 70, flexShrink: 0 }}>{count}件 ({pct}%)</div>
-                          </div>
-                        )
-                      })
-                    })()}
+                          )
+                        })}
+                        {/* scale_labels 注釈 */}
+                        {q.type === 'scale' && (() => {
+                          const scaleCol = surveyColumns.find(c => c.question_label === q.label)
+                          if (!scaleCol?.scale_labels) return null
+                          const pairs = scaleCol.scale_labels.split(',').map(p => p.trim()).filter(Boolean)
+                          if (pairs.length === 0) return null
+                          return (
+                            <div style={{ marginTop: 4, padding: '5px 10px', background: '#f8fafc', borderRadius: 4, border: '1px solid #e2e8f0' }}>
+                              {pairs.map((pair, i) => (
+                                <span key={i} style={{ fontSize: 10, color: C.muted, marginRight: 12 }}>{pair.replace(':', '：')}</span>
+                              ))}
+                            </div>
+                          )
+                        })()}
+                      </>
+                    )}
                     {/* text_agg: 回答編集トグル */}
                     {q.type === 'text_agg' && (
                       <div style={{ marginTop: 8 }}>
