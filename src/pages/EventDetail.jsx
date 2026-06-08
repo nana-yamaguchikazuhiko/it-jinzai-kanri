@@ -351,7 +351,7 @@ export default function EventDetail() {
 
   const handleAddSurveyColumn = useCallback(async (col, url) => {
     const order = surveyColumns.filter(c => c.event_id === id).length + 1
-    await appendRow('survey_columns', { id: generateId(), event_id: id, spreadsheet_url: url, col_index: col.col_index, question_label: col.question_label, question_type: col.question_type, col_order: String(order) })
+    await appendRow('survey_columns', { id: generateId(), event_id: id, spreadsheet_url: url, col_index: col.col_index, question_label: col.question_label, question_type: col.question_type, scale_labels: col.scale_labels || '', col_order: String(order) })
     await reloadSurveyColumns()
   }, [id, surveyColumns, reloadSurveyColumns])
 
@@ -364,7 +364,7 @@ export default function EventDetail() {
     const baseOrder = surveyColumns.filter(c => c.event_id === id).length
     for (let i = 0; i < cols.length; i++) {
       const col = cols[i]
-      await appendRow('survey_columns', { id: generateId(), event_id: id, spreadsheet_url: url, col_index: col.col_index, question_label: col.question_label, question_type: col.question_type, col_order: String(baseOrder + i + 1) })
+      await appendRow('survey_columns', { id: generateId(), event_id: id, spreadsheet_url: url, col_index: col.col_index, question_label: col.question_label, question_type: col.question_type, scale_labels: col.scale_labels || '', col_order: String(baseOrder + i + 1) })
     }
     await reloadSurveyColumns()
   }, [id, surveyColumns, reloadSurveyColumns])
@@ -1477,7 +1477,9 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
   const [form, setForm] = useState({ overview: '', impression: '', speakers: '' })
   const [saving, setSaving] = useState(false)
   const [addingSheetUrl, setAddingSheetUrl] = useState(null)
-  const [pendingCols, setPendingCols] = useState([{ col_index: '', question_label: '', question_type: 'select' }])
+  const [pendingCols, setPendingCols] = useState([{ col_index: '', question_label: '', question_type: 'select', scale_labels: '' }])
+  const [editingColId,   setEditingColId  ] = useState(null)
+  const [editingColForm, setEditingColForm] = useState({ question_type: 'select', scale_labels: '' })
   const [newSheetUrl, setNewSheetUrl] = useState('')
   const [editingUrlFor, setEditingUrlFor] = useState(null)
   const [newUrlValue, setNewUrlValue] = useState('')
@@ -1861,16 +1863,55 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
 
             {/* 列タグ一覧 */}
             <div style={{ padding: '8px 12px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {[...cols].sort((a, b) => Number(a.col_order) - Number(b.col_order)).map(col => (
-                <span key={col.id} style={{ fontSize: 11, padding: '4px 10px', background: '#f1f5f9', borderRadius: 4, color: C.secondary, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  {col.col_index}列: {col.question_label}
-                  <span style={{ fontSize: 10, color: C.muted }}>
-                    ({col.question_type === 'select' ? '集計' : col.question_type === 'scale' ? '均等' : col.question_type === 'multi' ? '複数' : col.question_type === 'text_agg' ? '自由グラフ' : '自由'})
-                  </span>
-                  <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
-                    onClick={() => { if (confirm(`「${col.question_label}」の設定を削除しますか？`)) onDeleteSurveyColumn(col.id) }}>×</button>
-                </span>
-              ))}
+              {[...cols].sort((a, b) => Number(a.col_order) - Number(b.col_order)).map(col => {
+                const typeLabel = col.question_type === 'select' ? '集計' : col.question_type === 'scale' ? '均等' : col.question_type === 'multi' ? '複数' : col.question_type === 'text_agg' ? '自由グラフ' : '自由'
+                const isEditingThis = editingColId === col.id
+                return (
+                  <div key={col.id} style={{ fontSize: 11, background: isEditingThis ? '#eff6ff' : '#f1f5f9', borderRadius: 4, border: `1px solid ${isEditingThis ? '#bfdbfe' : 'transparent'}` }}>
+                    {isEditingThis ? (
+                      <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 5, minWidth: 280 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: C.secondary }}>{col.col_index}列: {col.question_label}</div>
+                        <select value={editingColForm.question_type}
+                          onChange={e => setEditingColForm(p => ({ ...p, question_type: e.target.value }))}
+                          style={{ fontSize: 11, padding: '3px 6px', border: '1px solid #e2e8f0', borderRadius: 3, fontFamily: 'inherit' }}>
+                          <option value="select">選択肢（件数集計）</option>
+                          <option value="scale">均等目盛（値順）</option>
+                          <option value="multi">複数選択（個別集計）</option>
+                          <option value="text_agg">自由記述（グラフ集計）</option>
+                          <option value="text">自由記述（一覧）</option>
+                        </select>
+                        {editingColForm.question_type === 'scale' && (
+                          <input type="text" value={editingColForm.scale_labels}
+                            onChange={e => setEditingColForm(p => ({ ...p, scale_labels: e.target.value }))}
+                            placeholder="例: 1:全くそう思わない,5:かなりそう思う"
+                            style={{ fontSize: 11, padding: '3px 6px', border: '1px solid #e2e8f0', borderRadius: 3, fontFamily: 'inherit' }}
+                          />
+                        )}
+                        <div style={{ display: 'flex', gap: 5 }}>
+                          <button style={{ fontSize: 11, padding: '3px 10px', background: C.primary, color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}
+                            onClick={async () => {
+                              await updateById('survey_columns', col.id, { question_type: editingColForm.question_type, scale_labels: editingColForm.scale_labels })
+                              reloadSurveyColumns()
+                              setEditingColId(null)
+                            }}>保存</button>
+                          <button style={{ fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
+                            onClick={() => setEditingColId(null)}>キャンセル</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ padding: '4px 8px', color: C.secondary, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        {col.col_index}列: {col.question_label}
+                        <span style={{ fontSize: 10, color: C.muted }}>({typeLabel})</span>
+                        <button style={{ fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
+                          onClick={() => { setEditingColId(col.id); setEditingColForm({ question_type: col.question_type || 'select', scale_labels: col.scale_labels || '' }) }}
+                          title="種別・ラベルを編集">✎</button>
+                        <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                          onClick={() => { if (confirm(`「${col.question_label}」の設定を削除しますか？`)) onDeleteSurveyColumn(col.id) }}>×</button>
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {/* この表に列を追加フォーム */}
@@ -1881,31 +1922,39 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                   return (
                     <>
                       {rows.map((col, idx) => (
-                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 140px 24px', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-                          <input type="number" className="form-input" min="1" value={col.col_index}
-                            onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, col_index: e.target.value } : c))}
-                            placeholder="列番号" style={{ fontSize: 12 }} />
-                          <input type="text" className="form-input" value={col.question_label}
-                            onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_label: e.target.value } : c))}
-                            placeholder="質問ラベル（表示名）" style={{ fontSize: 12 }} />
-                          <select className="form-select" value={col.question_type}
-                            onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_type: e.target.value } : c))}
-                            style={{ fontSize: 12 }}>
-                            <option value="select">選択肢（件数集計）</option>
-                            <option value="scale">均等目盛（値順）</option>
-                            <option value="multi">複数選択（個別集計）</option>
-                            <option value="text_agg">自由記述（グラフ集計）</option>
-                            <option value="text">自由記述（一覧）</option>
-                          </select>
-                          {rows.length > 1 && (
-                            <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                              onClick={() => setPendingCols(p => p.filter((_, i) => i !== idx))}>×</button>
+                        <div key={idx} style={{ marginBottom: 8 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr 140px 24px', gap: 6, alignItems: 'center' }}>
+                            <input type="number" className="form-input" min="1" value={col.col_index}
+                              onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, col_index: e.target.value } : c))}
+                              placeholder="列番号" style={{ fontSize: 12 }} />
+                            <input type="text" className="form-input" value={col.question_label}
+                              onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_label: e.target.value } : c))}
+                              placeholder="質問ラベル（表示名）" style={{ fontSize: 12 }} />
+                            <select className="form-select" value={col.question_type}
+                              onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, question_type: e.target.value, scale_labels: '' } : c))}
+                              style={{ fontSize: 12 }}>
+                              <option value="select">選択肢（件数集計）</option>
+                              <option value="scale">均等目盛（値順）</option>
+                              <option value="multi">複数選択（個別集計）</option>
+                              <option value="text_agg">自由記述（グラフ集計）</option>
+                              <option value="text">自由記述（一覧）</option>
+                            </select>
+                            {rows.length > 1 && (
+                              <button style={{ fontSize: 13, color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                onClick={() => setPendingCols(p => p.filter((_, i) => i !== idx))}>×</button>
+                            )}
+                          </div>
+                          {col.question_type === 'scale' && (
+                            <input type="text" className="form-input" value={col.scale_labels || ''}
+                              onChange={e => setPendingCols(p => p.map((c, i) => i === idx ? { ...c, scale_labels: e.target.value } : c))}
+                              placeholder="目盛ラベル（任意）例: 1:全くそう思わない,5:かなりそう思う"
+                              style={{ fontSize: 11, marginTop: 4, width: '100%', boxSizing: 'border-box' }} />
                           )}
                         </div>
                       ))}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                         <button style={{ fontSize: 11, color: C.primary, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                          onClick={() => setPendingCols(p => [...p, { col_index: '', question_label: '', question_type: 'select' }])}>
+                          onClick={() => setPendingCols(p => [...p, { col_index: '', question_label: '', question_type: 'select', scale_labels: '' }])}>
                           + 行を追加
                         </button>
                         <button style={{ padding: '4px 14px', borderRadius: 5, background: C.primary, color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
@@ -2028,18 +2077,31 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                     )}
                     {chartTypes[q.label] === 'pie' ? (
                       <SurveyPieChart counts={q.counts} total={q.total} />
-                    ) : q.counts.map(([answer, count]) => {
-                      const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0
-                      return (
-                        <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 160, fontSize: 12, color: C.secondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={answer}>{answer}</div>
-                          <div style={{ flex: 1, height: 16, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', maxWidth: 280 }}>
-                            <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: C.primary, borderRadius: 4, transition: 'width 0.4s' }} />
+                    ) : (() => {
+                      // scale_labels の解析
+                      const scaleCol = surveyColumns.find(c => c.question_label === q.label)
+                      const scaleLabels = {}
+                      if (scaleCol?.scale_labels) {
+                        scaleCol.scale_labels.split(',').forEach(pair => {
+                          const idx = pair.indexOf(':')
+                          if (idx > 0) scaleLabels[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim()
+                        })
+                      }
+                      return q.counts.map(([answer, count]) => {
+                        const pct   = q.total > 0 ? Math.round((count / q.total) * 100) : 0
+                        const lbl   = scaleLabels[answer]
+                        const label = lbl ? `${answer}：${lbl}` : answer
+                        return (
+                          <div key={answer} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 200, fontSize: 12, color: C.secondary, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>{label}</div>
+                            <div style={{ flex: 1, height: 16, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', maxWidth: 260 }}>
+                              <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: C.primary, borderRadius: 4, transition: 'width 0.4s' }} />
+                            </div>
+                            <div style={{ fontSize: 12, color: C.text, fontWeight: 600, width: 70, flexShrink: 0 }}>{count}件 ({pct}%)</div>
                           </div>
-                          <div style={{ fontSize: 12, color: C.text, fontWeight: 600, width: 70, flexShrink: 0 }}>{count}件 ({pct}%)</div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })
+                    })()}
                     {/* text_agg: 回答編集トグル */}
                     {q.type === 'text_agg' && (
                       <div style={{ marginTop: 8 }}>

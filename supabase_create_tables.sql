@@ -173,7 +173,8 @@ CREATE TABLE IF NOT EXISTS survey_columns (
   col_index       TEXT,
   question_label  TEXT,
   question_type   TEXT,
-  col_order       TEXT
+  col_order       TEXT,
+  scale_labels    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS survey_responses (
