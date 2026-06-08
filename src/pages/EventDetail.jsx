@@ -1890,9 +1890,13 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
                         <div style={{ display: 'flex', gap: 5 }}>
                           <button style={{ fontSize: 11, padding: '3px 10px', background: C.primary, color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}
                             onClick={async () => {
-                              await updateById('survey_columns', col.id, { question_type: editingColForm.question_type, scale_labels: editingColForm.scale_labels })
-                              reloadSurveyColumns()
-                              setEditingColId(null)
+                              try {
+                                await updateById('survey_columns', col.id, { question_type: editingColForm.question_type, scale_labels: editingColForm.scale_labels })
+                                reloadSurveyColumns()
+                                setEditingColId(null)
+                              } catch (e) {
+                                alert('保存失敗: ' + e.message)
+                              }
                             }}>保存</button>
                           <button style={{ fontSize: 11, color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
                             onClick={() => setEditingColId(null)}>キャンセル</button>
