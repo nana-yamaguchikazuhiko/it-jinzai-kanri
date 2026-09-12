@@ -1,6 +1,8 @@
 // Netlify Function: アンケートスプレッドシート → survey_responses 同期
 // survey_columns に設定されたURLと列マッピングをもとに外部スプレッドシートからデータを取得して同期する
 
+import { requireAuth, unauthorizedResponse } from './_session.js'
+
 const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
 const SUPABASE_URL         = process.env.SUPABASE_URL
 const SUPABASE_KEY         = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -66,11 +68,12 @@ function generateId() {
 export const handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json',
   }
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
+  if (!requireAuth(event)) return unauthorizedResponse(headers)
 
   try {
     const eventId = event.queryStringParameters?.event_id

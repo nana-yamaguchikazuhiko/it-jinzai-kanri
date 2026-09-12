@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react'
 
 const SESSION_KEY = 'it_mgmt_auth'
+const TOKEN_KEY = 'it_mgmt_token'
+
+// API層（src/api/sheets.js等）から呼び出してAuthorizationヘッダーに付与する
+export function getAuthToken() {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
 
 export default function PasswordGate({ children }) {
   const [authed, setAuthed] = useState(false)
@@ -34,6 +44,7 @@ export default function PasswordGate({ children }) {
 
       if (data.ok) {
         sessionStorage.setItem(SESSION_KEY, 'true')
+        sessionStorage.setItem(TOKEN_KEY, data.token || '')
         setAuthed(true)
       } else {
         setError('IDまたはパスワードが違います')

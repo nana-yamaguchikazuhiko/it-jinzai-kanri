@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSheets } from '../hooks/useSheets'
 import { updateById, appendRow, deleteById, generateId } from '../api/sheets'
+import { getAuthToken } from '../components/PasswordGate'
 import { ContactStatusBadge, EventStatusBadge } from '../components/StatusBadge'
 import { T } from '../constants/theme'
 import { Icon } from '../components/Icons'
@@ -1669,7 +1670,10 @@ function ReportTab({ eventId, evReport, formSync, surveyColumns, surveyResponses
     if (surveyColumns.length === 0) { alert('アンケート列を設定してください'); return }
     setSyncing(true)
     try {
-      const res = await fetch(`/.netlify/functions/sync-survey?event_id=${eventId}`)
+      const authToken = getAuthToken()
+      const res = await fetch(`/.netlify/functions/sync-survey?event_id=${eventId}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || '同期失敗') }
       const data = await res.json()
       reloadSurveyResponses()
@@ -2343,7 +2347,10 @@ function ContentGenTab({ event, contentTemplates, shGroups, groupMembers, stakeh
     setSelectedSheetNames([])
     setSheetLoaded(false)
     try {
-      const res = await fetch('/.netlify/functions/read-company-sheet?spreadsheet_url=' + encodeURIComponent(sheetUrl.trim()))
+      const authToken = getAuthToken()
+      const res = await fetch('/.netlify/functions/read-company-sheet?spreadsheet_url=' + encodeURIComponent(sheetUrl.trim()), {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '読み込み失敗')
       setSheetCompanies(data.companies || [])

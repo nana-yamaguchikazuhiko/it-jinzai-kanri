@@ -1,7 +1,11 @@
 // Supabase API のフロントエンドラッパー
 // 実際の呼び出しは netlify/functions/sheets.js で行う
 
+import { getAuthToken } from '../components/PasswordGate'
+
 const API_BASE = '/.netlify/functions/sheets'
+const SESSION_KEY = 'it_mgmt_auth'
+const TOKEN_KEY = 'it_mgmt_token'
 
 // ── クライアントキャッシュ（ページ移動を高速化）──
 // データはブラウザのメモリにのみ保持。通信・認証の仕組みは変わらない。
@@ -14,7 +18,14 @@ function invalidateCache(sheetName) {
 
 async function request(method, params) {
   let url = API_BASE
-  let options = { method, headers: { 'Content-Type': 'application/json' } }
+  const token = getAuthToken()
+  let options = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  }
 
   if (method === 'GET') {
     const qs = new URLSearchParams(params).toString()
@@ -24,6 +35,12 @@ async function request(method, params) {
   }
 
   const res = await fetch(url, options)
+  if (res.status === 401) {
+    sessionStorage.removeItem(SESSION_KEY)
+    sessionStorage.removeItem(TOKEN_KEY)
+    window.location.reload()
+    throw new Error('セッションが切れました。再ログインしてください。')
+  }
   if (!res.ok) {
     const err = await res.text()
     throw new Error(`Sheets API エラー [${res.status}]: ${err}`)

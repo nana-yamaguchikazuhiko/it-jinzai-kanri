@@ -1,6 +1,8 @@
 // Basic認証チェック用 Netlify Function
 // 認証情報はNetlify環境変数で管理し、コードには記述しない
 
+import { issueToken } from './_session.js'
+
 export const handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -26,7 +28,12 @@ export const handler = async (event) => {
   }
 
   if (username === validUser && password === validPass) {
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }
+    try {
+      const token = issueToken(username)
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, token }) }
+    } catch {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'セッション設定が未完了です（SESSION_SECRET）' }) }
+    }
   }
 
   return { statusCode: 401, headers, body: JSON.stringify({ ok: false }) }

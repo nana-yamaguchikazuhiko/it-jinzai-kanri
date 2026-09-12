@@ -1,8 +1,20 @@
 // Netlify Function: Supabase プロキシ
 // service_role key をサーバーサイドで保護する
 
+import { requireAuth, unauthorizedResponse } from './_session.js'
+
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+// このアプリが扱うテーブルのみ許可（同一Supabaseプロジェクトに同居する
+// 他アプリ（nanaca dashboardのdash_*等）のテーブルへのアクセスを防ぐ）
+const ALLOWED_SHEETS = new Set([
+  'tasks', 'events', 'stakeholders', 'goals', 'results',
+  'mails', 'snippets', 'field_notes', 'task_templates',
+  'event_budgets', 'category_budgets', 'event_documents', 'event_reports',
+  'event_stakeholders', 'sh_groups', 'sh_group_members',
+  'survey_columns', 'survey_responses', 'form_sync', 'content_templates',
+])
 
 function supabaseHeaders() {
   return {
@@ -15,13 +27,17 @@ function supabaseHeaders() {
 export const handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Content-Type': 'application/json',
   }
 
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers, body: '' }
+  }
+
+  if (!requireAuth(event)) {
+    return unauthorizedResponse(headers)
   }
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -37,6 +53,7 @@ export const handler = async (event) => {
     if (event.httpMethod === 'GET') {
       const sheet = event.queryStringParameters?.sheet
       if (!sheet) return { statusCode: 400, headers, body: JSON.stringify({ error: 'sheet パラメータが必要です' }) }
+      if (!ALLOWED_SHEETS.has(sheet)) return { statusCode: 403, headers, body: JSON.stringify({ error: `未許可のテーブルです: ${sheet}` }) }
 
       const res = await fetch(`${SUPABASE_URL}/rest/v1/${sheet}?select=*&limit=10000&order=id`, {
         headers: { ...supabaseHeaders(), 'Prefer': 'count=none' },
@@ -52,6 +69,7 @@ export const handler = async (event) => {
       const { action, sheet, values, id } = body
 
       if (!sheet) return { statusCode: 400, headers, body: JSON.stringify({ error: 'sheet が必要です' }) }
+      if (!ALLOWED_SHEETS.has(sheet)) return { statusCode: 403, headers, body: JSON.stringify({ error: `未許可のテーブルです: ${sheet}` }) }
 
       // 追加
       if (action === 'append') {

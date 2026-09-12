@@ -1,6 +1,8 @@
 // Netlify Function: 企業申込スプレッドシート → 企業データ読み込み
 // ヘッダー行で列を自動検出し、新規／前回（変更なし）の動線を自動判定して返す
 
+import { requireAuth, unauthorizedResponse } from './_session.js'
+
 const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
 const SHEETS_BASE          = 'https://sheets.googleapis.com/v4/spreadsheets'
 
@@ -111,10 +113,11 @@ function extractFromSet(row, set) {
 export const handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json',
   }
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
+  if (!requireAuth(event)) return unauthorizedResponse(headers)
 
   try {
     const spreadsheetUrl = event.queryStringParameters?.spreadsheet_url
